@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050811">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https: blob: data:; worker-src 'self' blob:">
+<title>Cyclone AI | Cabin Security Monitor</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#050811;--card:#0d1322;--bd:#1a243b;--tx:#e2e8f0;--mut:#94a3b8;--pu:#a855f7;--red:#ef4444;--grn:#10b981;--amb:#f59e0b}
+*{box-sizing:border-box;margin:0}[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+header,footer{background:#0b1120;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;flex-wrap:wrap}
+header{border-bottom:1px solid var(--bd)}footer{border-top:1px solid var(--bd);justify-content:center}
+h1{font-size:15px;letter-spacing:.14em;font-weight:800}h1 span{color:var(--pu)}
+.sub{font-size:11px;color:var(--mut)}
+.pill{padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid var(--bd);background:#111a2e;color:var(--mut)}
+.pill.on{color:var(--pu);border-color:#6b21a8}.pill.lock{color:var(--red);border-color:#991b1b}
+.stat{text-align:center;font-size:10px;color:var(--mut);text-transform:uppercase}.stat b{display:block;font-size:16px;color:var(--tx)}
+#stage{position:relative;flex:1;min-height:0;background:#000;overflow:hidden}
+#stage video,#stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.mir{transform:scaleX(-1)}#hud{pointer-events:none}
+.btn{border:1px solid var(--bd);background:#1a243b;color:var(--tx);padding:11px 14px;border-radius:12px;font:600 13px inherit;cursor:pointer;min-height:44px}
+.btn:hover{background:#243250}.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--pu);outline-offset:2px}
+.go{background:#059669;border-color:#34d399}.stop{background:#be123c;border-color:#fb7185}.panic{background:#dc2626;border-color:#f87171;flex:1;max-width:200px}.pri{background:#7c3aed;border-color:#a78bfa}
+.sm{padding:6px 10px;min-height:32px;font-size:12px}
+.ovl{position:absolute;left:50%;transform:translateX(-50%);padding:8px 18px;border-radius:12px;text-align:center;z-index:5}
+#threat{top:12px;background:#dc2626e6;border:2px solid #fca5a5;animation:p .7s infinite alternate}
+#threat b{display:block;letter-spacing:.08em}#threat small{font-size:11px}
+@keyframes p{to{opacity:.7}}
+#toast{bottom:14px;background:#0d1322f0;border:1px solid var(--bd);font-size:12px;max-width:90%}
+.tag{position:absolute;z-index:4;font-size:11px;color:#cbd5e1;background:#050811cc;border:1px solid var(--bd);border-radius:8px;padding:5px 10px}
+#hudinfo{left:10px;bottom:10px}#recbox{right:10px;top:10px;color:var(--red);border-color:#7f1d1d}
+#gate{position:absolute;inset:0;z-index:8;background:#050811f2;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:12px}
+.card p{font-size:12px;color:var(--mut)}label.chk{display:flex;gap:8px;font-size:12px;color:var(--tx);align-items:flex-start}
+dialog{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:16px;padding:0;width:min(92vw,640px);max-height:88vh;margin:auto}
+dialog::backdrop{background:#000b}.dh{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--bd);font-weight:700}
+.db{padding:14px 18px;display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:68vh}
+.row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);margin-bottom:4px}
+input[type=range]{width:100%;accent-color:var(--pu)}
+input[type=text],input[type=url],select{width:100%;background:#050811;color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:9px;font:inherit}
+.inc{display:flex;gap:10px;align-items:center;border:1px solid var(--bd);border-radius:12px;padding:8px;flex-wrap:wrap}
+.inc img{width:96px;height:64px;object-fit:cover;border-radius:8px;background:#000}.inc div.i{flex:1;min-width:150px;font-size:12px}
+.inc .r{color:#fca5a5;font-weight:700}.mut{color:var(--mut)}
+#dim{position:fixed;inset:0;z-index:50;background:#000;color:#334155;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:24px;cursor:pointer;font-size:11px}
+</style>
+</head>
+<body>
+<div id="dim" hidden role="button" tabindex="0" aria-label="Restore screen"><span id="dimclk" class="mono"></span><span>Cyclone AI monitoring. Tap to restore screen</span><span id="dimst">RECORDING</span></div>
+
+<header>
+  <div><h1>CYCLONE <span>AI</span></h1><p class="sub" id="aiTxt">Vision models not loaded</p></div>
+  <span class="pill" id="badge">STANDBY</span>
+  <div style="display:flex;gap:14px;align-items:center">
+    <div class="stat">Impact G<b id="g" class="mono">0.00</b></div>
+    <div class="stat">Vision Hz<b id="fps" class="mono">0</b></div>
+  </div>
+</header>
+
+<main id="stage">
+  <video id="cam" playsinline muted autoplay aria-label="Cabin camera"></video>
+  <canvas id="demo" width="1280" height="720" hidden></canvas>
+  <canvas id="hud"></canvas>
+  <div id="threat" class="ovl" role="alert" hidden><b id="tt"></b><small id="ts"></small></div>
+  <div id="toast" class="ovl mono" role="status" hidden></div>
+  <div id="hudinfo" class="tag mono"><div id="gps">GPS: waiting</div><div><span id="clk">--</span> | <span id="sum">Cabin secure</span></div></div>
+  <div id="recbox" class="tag mono" hidden>REC <b id="rect">00:00</b></div>
+
+  <div id="gate">
+    <div class="card">
+      <h2 style="font-size:20px;letter-spacing:.08em">CYCLONE <span style="color:var(--pu)">AI</span></h2>
+      <p>Cabin security monitor. Detects possible weapons, covered faces and physical struggles, and keeps a rolling evidence buffer on this device. Video never leaves your device unless you export it. Detections are automated estimates and can be wrong; treat them as prompts to check, not proof.</p>
+      <label class="chk"><input type="checkbox" id="consent"><span>I will tell everyone in the vehicle that the cabin is recorded, as required by local law (for example POPIA in South Africa).</span></label>
+      <button class="btn pri" id="startBtn">Enable cabin camera</button>
+      <button class="btn sm" id="demoBtn">Run simulator (no camera)</button>
+      <p id="gateMsg" role="alert"></p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <button class="btn go" id="toggle">START MONITOR</button>
+  <button class="btn panic" id="panic">PANIC / LOCK</button>
+  <button class="btn" id="flip" aria-label="Switch camera">Flip</button>
+  <button class="btn" id="dimBtn" aria-label="Dim screen">Dim</button>
+  <button class="btn" id="galBtn">Evidence <span id="cnt">0</span></button>
+  <button class="btn" id="setBtn" aria-label="Settings">Settings</button>
+</footer>
+
+<dialog id="galD"><div class="dh"><span>Evidence</span><button class="btn sm" data-close>Close</button></div>
+  <div class="db" id="list"></div>
+  <div class="dh" style="border-top:1px solid var(--bd);border-bottom:0"><span id="galLbl" class="mono mut" style="font-size:12px">0 incidents</span><button class="btn sm" id="expBtn">Export log (JSON)</button></div></dialog>
+
+<dialog id="playD"><div class="dh"><span id="playT">Playback</span><button class="btn sm" id="playX">Close</button></div>
+  <video id="player" controls playsinline style="width:100%;background:#000;max-height:60vh"></video><div class="db mono" id="playI" style="font-size:12px"></div></dialog>
+
+<dialog id="setD"><div class="dh"><span>Settings</span><button class="btn sm" data-close>Close</button></div>
+  <div class="db">
+    <div><div class="row"><label for="side">Driver seat appears on</label></div><select id="side"><option value="right">Right of screen</option><option value="left">Left of screen</option></select></div>
+    <div><div class="row"><label for="zone">Driver zone boundary</label><span id="zoneV"></span></div><input id="zone" type="range" min=".3" max=".7" step=".05"></div>
+    <div><div class="row"><label for="speed">Struggle speed threshold (shoulder-widths/s)</label><span id="speedV"></span></div><input id="speed" type="range" min="1.5" max="6" step=".5"></div>
+    <label class="chk"><input type="checkbox" id="struggle"><span>Struggle detection</span></label>
+    <div><div class="row"><label for="silent">Alert sound</label></div><select id="silent"><option value="1">Silent (recommended)</option><option value="0">Audible</option></select></div>
+    <div><div class="row"><label for="hook">Alert webhook (HTTPS, optional; sends incident details only, no video)</label></div><input id="hook" type="url" placeholder="https://"></div>
+    <div><div class="row"><label for="model">Extra detector model (.tflite, e.g. firearms)</label></div><input id="model" type="file" accept=".tflite"></div>
+    <div id="simBox" hidden><div class="row">Simulator</div><div style="display:flex;gap:8px"><button class="btn sm" data-sim="struggle">Struggle</button><button class="btn sm" data-sim="mask">Face cover</button><button class="btn sm" data-sim="weapon">Weapon</button></div></div>
+    <button class="btn pri" id="saveBtn">Save</button>
+  </div></dialog>
+
+<script type="module">
+import {ObjectDetector,PoseLandmarker,FaceDetector,FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const $=id=>document.getElementById(id);
+const WASM="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm",MP="https://storage.googleapis.com/mediapipe-models/";
+const SEG=15,POST=10,MAXINC=25,IMPACT_G=2.5,HZ=15;
+const WEAPONS={knife:.5,scissors:.6,"baseball bat":.5},CUSTOM=/gun|pistol|firearm|rifle|knife|blade|weapon/;
+const MIME=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm","video/mp4"].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||"";
+const EXT=MIME.includes("mp4")?"mp4":"webm";
+let cfg={side:"right",zone:.5,speed:3,struggle:true,silent:true,hook:"",consent:false};
+try{Object.assign(cfg,JSON.parse(localStorage.getItem("cyclone.cfg")||"{}"))}catch(e){}
+const save=()=>{try{localStorage.setItem("cyclone.cfg",JSON.stringify(cfg))}catch(e){}};
+const S={run:false,demo:false,facing:"user",mir:true,stream:null,rec:null,segs:[],pend:null,fin:false,prev:[],pt:0,ev:[],wh:[],maskT:0,last:0,ts:0,ct:-1,n:0,t0:0,cool:{},g:0,peak:0,pos:null,gps:null,wake:null,sim:null,hz:0};
+let pose,face,obj,obj2,vis,aiP=null,motionOn=false,toastT,thrT;
+const video=$("cam"),hud=$("hud"),ctx=hud.getContext("2d"),demo=$("demo"),dctx=demo.getContext("2d");
+
+/* ---------- storage (IndexedDB) ---------- */
+const dbp=new Promise((ok,no)=>{const r=indexedDB.open("cyclone",1);r.onupgradeneeded=()=>r.result.createObjectStore("inc",{keyPath:"id"});r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const tx=async(m,f)=>{const d=await dbp;return new Promise((ok,no)=>{const t=d.transaction("inc",m),r=f(t.objectStore("inc"));t.oncomplete=()=>ok(r.result);t.onerror=()=>no(t.error)})};
+const getAll=async()=>(await tx("readonly",s=>s.getAll())).sort((a,b)=>b.ts-a.ts);
+
+/* ---------- helpers ---------- */
+function toast(m,ms=3500){const e=$("toast");e.textContent=m;e.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>e.hidden=true,ms)}
+function beep(f=880,n=2){if(cfg.silent)return;try{const a=beep.c||(beep.c=new(window.AudioContext||window.webkitAudioContext)());a.resume();for(let i=0;i<n;i++){const o=a.createOscillator(),g=a.createGain(),t=a.currentTime+i*.2;o.frequency.value=f;g.gain.setValueAtTime(.2,t);g.gain.exponentialRampToValueAtTime(.001,t+.15);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+.15)}}catch(e){}}
+function setBadge(t,c){const b=$("badge");b.textContent=t;b.className="pill "+(c||"")}
+const dl=(blob,name)=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)};
+const mx=x=>S.mir?1-x:x,inDriver=sx=>cfg.side==="left"?sx<cfg.zone:sx>cfg.zone;
+const bx=(x,bw,w)=>S.mir?w-x-bw:x;
+
+/* ---------- vision models ---------- */
+async function loadAI(){
+  $("aiTxt").textContent="Loading vision models...";
+  try{vis=await FilesetResolver.forVisionTasks(WASM)}catch(e){return $("aiTxt").textContent="AI offline (no network). Recording only."}
+  for(const d of ["GPU","CPU"]){
+    try{
+      const b=u=>({baseOptions:{modelAssetPath:MP+u,delegate:d},runningMode:"VIDEO"});
+      pose=await PoseLandmarker.createFromOptions(vis,{...b("pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"),numPoses:3});
+      face=await FaceDetector.createFromOptions(vis,{...b("face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite"),minDetectionConfidence:.4});
+      obj=await ObjectDetector.createFromOptions(vis,{...b("object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite"),scoreThreshold:.35,maxResults:10});
+      return $("aiTxt").textContent=`Vision active (${d})`;
+    }catch(e){console.warn(d,e);pose=face=obj=null}
+  }
+  $("aiTxt").textContent="AI failed to load. Recording only.";
+}
+$("model").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{if(!vis)vis=await FilesetResolver.forVisionTasks(WASM);
+    obj2=await ObjectDetector.createFromOptions(vis,{baseOptions:{modelAssetBuffer:new Uint8Array(await f.arrayBuffer())},scoreThreshold:.5,runningMode:"VIDEO"});
+    toast("Extra model loaded: "+f.name)}catch(err){toast("Model rejected: "+err.message,6000)}
+});
+
+/* ---------- sensors ---------- */
+async function sensors(){
+  if(!motionOn){
+    try{if(window.DeviceMotionEvent&&DeviceMotionEvent.requestPermission&&await DeviceMotionEvent.requestPermission()!=="granted")throw 0;
+      addEventListener("devicemotion",motion);motionOn=true}catch(e){}
+  }
+  if(navigator.geolocation&&S.gps==null)S.gps=navigator.geolocation.watchPosition(p=>{S.pos=p.coords;$("gps").textContent=`GPS ${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)} (+/-${Math.round(p.coords.accuracy)} m)`},()=>$("gps").textContent="GPS unavailable",{enableHighAccuracy:true,maximumAge:2000,timeout:10000});
+}
+function motion(e){
+  const a=e.acceleration,g=e.accelerationIncludingGravity;let m;
+  if(a&&a.x!=null)m=Math.hypot(a.x,a.y,a.z)/9.80665;else if(g&&g.x!=null)m=Math.abs(Math.hypot(g.x,g.y,g.z)/9.80665-1);else return;
+  S.g=S.g*.7+m*.3;S.peak=Math.max(S.peak,m);$("g").textContent=S.g.toFixed(2);
+  if(S.run&&m>=IMPACT_G)raise("impact",m.toFixed(1)+" G");
+}
+async function wake(){try{if(S.run&&"wakeLock" in navigator&&!S.wake){S.wake=await navigator.wakeLock.request("screen");S.wake.onrelease=()=>S.wake=null}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)wake();else if(S.run)toast("Keep Cyclone AI in the foreground; detection pauses in the background",6000)});
+
+/* ---------- camera + recording ---------- */
+async function cam(){
+  if(S.stream)S.stream.getTracks().forEach(t=>t.stop());
+  S.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:S.facing,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
+  S.stream.getVideoTracks()[0].onended=()=>{if(S.run){toast("Camera disconnected",6000);stop()}};
+  video.srcObject=S.stream;await video.play();
+  S.mir=S.facing==="user";video.classList.toggle("mir",S.mir);video.hidden=false;demo.hidden=true;
+}
+function segStart(){
+  if(!S.run)return;
+  const st=S.demo?demo.captureStream(24):S.stream;if(!st)return;
+  const ch=[];let r;
+  try{r=new MediaRecorder(st,MIME?{mimeType:MIME}:undefined)}catch(e){return toast("Recording is not supported on this device",6000)}
+  S.rec=r;r.ondataavailable=e=>e.data.size&&ch.push(e.data);
+  r.onstop=async()=>{
+    const b=new Blob(ch,{type:r.mimeType||MIME});if(b.size)S.segs=[...S.segs,b].slice(-3);
+    if(S.fin){S.fin=false;await finalize()}
+    segStart();
+  };
+  r.start(1000);setTimeout(()=>{if(r.state==="recording")r.stop()},SEG*1000);
+}
+const stopSeg=()=>{if(S.rec&&S.rec.state==="recording")S.rec.stop()};
+
+/* ---------- incidents ---------- */
+function lock(reason){
+  if(S.pend)return;
+  const c=document.createElement("canvas");c.width=hud.width||1280;c.height=hud.height||720;
+  const x=c.getContext("2d");x.save();
+  if(S.mir&&!S.demo)x.setTransform(-1,0,0,1,c.width,0);
+  x.drawImage(S.demo?demo:video,0,0,c.width,c.height);x.restore();
+  x.drawImage(hud,0,0);
+  S.pend={id:"EV-"+Date.now().toString(36).toUpperCase(),ts:Date.now(),reason,g:+S.peak.toFixed(2),
+    coords:S.pos?{lat:+S.pos.latitude.toFixed(5),lng:+S.pos.longitude.toFixed(5)}:null,snap:c.toDataURL("image/jpeg",.8)};
+  S.peak=0;setBadge("EVIDENCE LOCKED","lock");
+  setTimeout(()=>{S.fin=true;stopSeg()},POST*1000);
+}
+async function finalize(){
+  const p=S.pend;if(!p)return;S.pend=null;
+  const parts=S.segs.slice(-3);
+  const item={...p,parts,mime:MIME,size:parts.reduce((a,b)=>a+b.size,0)};
+  try{await tx("readwrite",s=>s.put(item));
+    const all=await getAll();for(const o of all.slice(MAXINC))await tx("readwrite",s=>s.delete(o.id));
+    toast("Evidence saved: "+p.id)}catch(e){toast("Could not save evidence: storage full or blocked",8000)}
+  if(S.run)setBadge("MONITORING","on");
+  render();
+}
+const KIND={struggle:["CABIN STRUGGLE DETECTED","Rapid reach into driver zone"],mask:["POSSIBLE FACE COVERING","Occupant faces camera, no face found"],weapon:["POSSIBLE WEAPON","Flagged: "],impact:["IMPACT DETECTED","Peak "],panic:["PANIC TRIGGERED","Manual lock"]};
+function raise(kind,detail=""){
+  const n=performance.now();
+  if(n-(S.cool[kind]??-1e9)<(kind==="panic"?1500:30000))return;
+  S.cool[kind]=n;
+  const sim=S.demo?" [SIMULATED]":"",[t,s]=KIND[kind];
+  $("tt").textContent=t+sim;$("ts").textContent=s+detail;$("threat").hidden=false;$("sum").textContent=t;
+  clearTimeout(thrT);thrT=setTimeout(()=>{$("threat").hidden=true;$("sum").textContent="Cabin secure"},6000);
+  beep(1200,3);lock(t+(detail?` (${detail})`:"")+sim);
+  const u=cfg.hook;
+  if(u&&u.startsWith("https://"))fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,
+    body:JSON.stringify({app:"Cyclone AI",kind,detail,simulated:S.demo,time:new Date().toISOString(),location:S.pos?{lat:S.pos.latitude,lng:S.pos.longitude}:null})}).catch(()=>{});
+}
+
+/* ---------- detection loop ---------- */
+function frame(now){
+  if(!S.run)return;requestAnimationFrame(frame);
+  if(now-S.last<1000/HZ)return;
+  S.last=now;S.n++;
+  const w=S.demo?1280:video.videoWidth,h=S.demo?720:video.videoHeight;if(!w)return;
+  if(hud.width!==w||hud.height!==h){hud.width=w;hud.height=h}
+  ctx.clearRect(0,0,w,h);zoneHUD(w,h);
+  const ts=Math.max(now,S.ts+1);S.ts=ts;
+  try{
+    if(S.demo)simFrame(w,h);
+    else if(video.readyState>=2&&video.currentTime!==S.ct){S.ct=video.currentTime;analyse(ts,w,h)}
+  }catch(e){console.warn("frame",e)}
+}
+function analyse(ts,w,h){
+  const people=pose?pose.detectForVideo(video,ts).landmarks||[]:[];
+  const faces=face?face.detectForVideo(video,ts).detections||[]:[];
+  faces.forEach(f=>{const b=f.boundingBox;ctx.strokeStyle="#10b981";ctx.lineWidth=2;ctx.strokeRect(bx(b.originX,b.width,w),b.originY,b.width,b.height)});
+  const dt=(ts-S.pt)/1000,cur=[];let facing=false,missing=false;
+  for(const p of people){
+    const a=p[11],b=p[12];if(!a||!b||a.visibility<.5||b.visibility<.5)continue;
+    const sw=Math.hypot((a.x-b.x)*w,(a.y-b.y)*h);if(sw<20)continue;
+    const c={cx:(a.x+b.x)/2,sw,wr:[15,16].map(i=>p[i]&&p[i].visibility>.5?{x:p[i].x*w,y:p[i].y*h,sx:mx(p[i].x)}:null)};
+    cur.push(c);skeleton(p,w,h);
+    const pv=S.prev.reduce((m,q)=>Math.abs(q.cx-c.cx)<.2&&(!m||Math.abs(q.cx-c.cx)<Math.abs(m.cx-c.cx))?q:m,null);
+    const passenger=!inDriver(mx(c.cx));
+    c.wr.forEach((q,k)=>{
+      if(!q||!pv||!pv.wr[k]||dt<=0||dt>.5)return;
+      const v=Math.hypot(q.x-pv.wr[k].x,q.y-pv.wr[k].y)/c.sw/dt;
+      if(passenger&&inDriver(q.sx)){ctx.fillStyle="rgba(239,68,68,.35)";ctx.beginPath();ctx.arc(bx(q.x,0,w),q.y,24,0,7);ctx.fill();if(v>cfg.speed)S.ev.push(ts)}
+    });
+    const n=p[0],e1=p[2],e2=p[5];
+    if(n&&e1&&e2&&n.visibility>.6&&e1.visibility>.5&&e2.visibility>.5){
+      facing=true;const hr=Math.hypot((e1.x-e2.x)*w,(e1.y-e2.y)*h)*2,hx=n.x*w,hy=n.y*h;
+      if(!faces.some(f=>{const b=f.boundingBox;return Math.hypot(b.originX+b.width/2-hx,b.originY+b.height/2-hy)<hr*1.5}))missing=true;
+    }
+  }
+  S.prev=cur;S.pt=ts;
+  S.ev=S.ev.filter(t=>ts-t<1500);
+  if(cfg.struggle&&S.ev.length>=4){S.ev=[];raise("struggle")}
+  if(facing&&missing){S.maskT=S.maskT||ts;if(ts-S.maskT>2500){S.maskT=0;raise("mask")}}else S.maskT=0;
+  const hits=[];
+  for(const [d,custom] of [[obj,false],[obj2,true]]){
+    if(!d)continue;
+    for(const det of d.detectForVideo(video,ts).detections||[]){
+      const cat=det.categories[0],l=cat.categoryName.toLowerCase();
+      const ok=custom?CUSTOM.test(l)&&cat.score>=.5:cat.score>=(WEAPONS[l]??9);
+      if(!ok)continue;hits.push(l);const b=det.boundingBox;
+      ctx.strokeStyle="#ef4444";ctx.lineWidth=3;const x=bx(b.originX,b.width,w);ctx.strokeRect(x,b.originY,b.width,b.height);
+      ctx.fillStyle="#ef4444";ctx.fillRect(x,Math.max(0,b.originY-18),150,18);ctx.fillStyle="#fff";ctx.font="bold 11px monospace";ctx.fillText(`${l.toUpperCase()} ${Math.round(cat.score*100)}%`,x+4,Math.max(12,b.originY-5));
+    }
+  }
+  hits.forEach(l=>S.wh.push({t:ts,l}));S.wh=S.wh.filter(e=>ts-e.t<1500);
+  const top=S.wh.find(e=>S.wh.filter(f=>f.l===e.l).length>=4);
+  if(top){S.wh=[];raise("weapon",top.l.toUpperCase())}
+}
+function zoneHUD(w,h){
+  const x=cfg.zone*w;ctx.save();ctx.strokeStyle="rgba(168,85,247,.5)";ctx.setLineDash([6,6]);ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();ctx.setLineDash([]);ctx.font="12px monospace";ctx.fillStyle="rgba(196,150,255,.9)";
+  const L=cfg.side==="left";ctx.textAlign=L?"right":"left";ctx.fillText("DRIVER ZONE",L?x-8:x+8,20);ctx.textAlign=L?"left":"right";ctx.fillText("PASSENGER",L?x+8:x-8,20);ctx.restore();
+}
+function skeleton(p,w,h){
+  ctx.save();ctx.strokeStyle="#a855f7";ctx.lineWidth=2;ctx.fillStyle="#06b6d4";
+  [[11,12],[11,13],[13,15],[12,14],[14,16]].forEach(([i,j])=>{if(p[i]&&p[j]){ctx.beginPath();ctx.moveTo(bx(p[i].x*w,0,w),p[i].y*h);ctx.lineTo(bx(p[j].x*w,0,w),p[j].y*h);ctx.stroke()}});
+  [0,2,5,11,12,13,14,15,16].forEach(i=>{if(p[i]){ctx.beginPath();ctx.arc(bx(p[i].x*w,0,w),p[i].y*h,3,0,7);ctx.fill()}});ctx.restore();
+}
+
+/* ---------- simulator (no camera) ---------- */
+function simFrame(w,h){
+  const s=S.sim;if(!s||performance.now()>s.until){S.sim=null;return}
+  ctx.strokeStyle="#f59e0b";ctx.lineWidth=3;
+  if(s.k==="weapon"){ctx.strokeStyle="#ef4444";ctx.strokeRect(w*.52,h*.4,120,160);ctx.fillStyle="#ef4444";ctx.font="bold 12px monospace";ctx.fillText("KNIFE (SIM)",w*.52,h*.4-6);raise("weapon","KNIFE (SIM)")}
+  if(s.k==="mask"){ctx.strokeRect(w*.6,h*.25,180,220);raise("mask")}
+  if(s.k==="struggle"){ctx.fillStyle="rgba(239,68,68,.4)";ctx.beginPath();ctx.arc(w*.55,h*.5,60,0,7);ctx.fill();raise("struggle")}
+}
+function demoLoop(){
+  if(!S.run||!S.demo)return;requestAnimationFrame(demoLoop);
+  const t=performance.now()/1000;dctx.fillStyle="#0b0f19";dctx.fillRect(0,0,1280,720);
+  dctx.strokeStyle="#1e293b";dctx.lineWidth=4;dctx.strokeRect(100,100,480,320);dctx.strokeRect(700,100,480,320);
+  dctx.fillStyle="#334155";dctx.font="20px monospace";dctx.fillText("CYCLONE AI SIMULATOR",470,60);
+  dctx.beginPath();dctx.arc(640+Math.sin(t)*200,600,12,0,7);dctx.fill();
+}
+
+/* ---------- lifecycle ---------- */
+async function start(demoMode){
+  if(S.run)return;
+  if(!cfg.consent)return $("gateMsg").textContent="Please confirm the recording notice first.";
+  sensors();S.demo=demoMode;
+  try{
+    if(demoMode){S.mir=false;video.hidden=true;demo.hidden=false}
+    else{
+      if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera needs HTTPS and a supported browser.");
+      await cam();
+    }
+  }catch(e){
+    const m=e.name==="NotAllowedError"?"Camera permission was denied. Allow it in browser settings and retry.":e.name==="NotFoundError"?"No camera found.":e.message;
+    $("gateMsg").textContent=m;toast(m,6000);return;
+  }
+  S.run=true;S.t0=Date.now();S.prev=[];S.ev=[];S.wh=[];S.segs=[];S.peak=0;
+  $("gate").hidden=true;$("toggle").textContent="STOP MONITOR";$("toggle").className="btn stop";$("recbox").hidden=false;setBadge("MONITORING","on");
+  $("simBox").hidden=!demoMode;
+  if(!demoMode&&!aiP)aiP=loadAI();
+  wake();segStart();requestAnimationFrame(frame);if(demoMode)demoLoop();
+  navigator.storage&&navigator.storage.persist&&navigator.storage.persist();
+}
+function stop(){
+  if(!S.run)return;S.run=false;
+  if(S.pend)S.fin=true;
+  stopSeg();
+  if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}
+  if(S.wake){S.wake.release();S.wake=null}
+  ctx.clearRect(0,0,hud.width,hud.height);
+  $("toggle").textContent="START MONITOR";$("toggle").className="btn go";$("recbox").hidden=true;setBadge("STANDBY");$("fps").textContent="0";$("threat").hidden=true;
+}
+addEventListener("beforeunload",e=>{if(S.run){e.preventDefault();e.returnValue=""}});
+setInterval(()=>{
+  const d=new Date(),el=Math.floor((Date.now()-S.t0)/1000);
+  $("clk").textContent=d.toISOString().replace("T"," ").slice(0,19)+"Z";$("dimclk").textContent=d.toLocaleTimeString();
+  if(S.run){$("rect").textContent=String(Math.floor(el/60)).padStart(2,"0")+":"+String(el%60).padStart(2,"0");$("fps").textContent=S.n;$("dimst").textContent="RECORDING";S.n=0}
+},1000);
+
+/* ---------- gallery ---------- */
+async function render(){
+  let all=[];try{all=await getAll()}catch(e){}
+  $("cnt").textContent=all.length;$("galLbl").textContent=all.length+" incident"+(all.length===1?"":"s");
+  const box=$("list");box.replaceChildren();
+  if(!all.length){const p=document.createElement("p");p.className="mut";p.textContent="No evidence saved yet.";box.append(p);return}
+  for(const it of all){
+    const d=document.createElement("div");d.className="inc";d.dataset.id=it.id;
+    const img=new Image();img.src=it.snap;img.alt="Snapshot";
+    const i=document.createElement("div");i.className="i mono";
+    const r=document.createElement("div");r.className="r";r.textContent=it.reason;
+    const m=document.createElement("div");m.className="mut";
+    m.textContent=`${new Date(it.ts).toLocaleString()} | peak ${it.g} G | ${it.coords?it.coords.lat+", "+it.coords.lng:"no location"} | ${(it.size/1048576).toFixed(1)} MB`;
+    i.append(r,m);
+    const mk=(t,a)=>{const b=document.createElement("button");b.className="btn sm";b.textContent=t;b.dataset.a=a;return b};
+    d.append(img,i,mk("Play","play"),mk("Save","dl"),mk("Delete","del"));box.append(d);
+  }
+}
+let urls=[];
+$("list").addEventListener("click",async e=>{
+  const a=e.target.dataset.a,id=e.target.closest(".inc")?.dataset.id;if(!a||!id)return;
+  const it=(await getAll()).find(x=>x.id===id);if(!it)return;
+  if(a==="del"){if(confirm("Delete this evidence permanently?")){await tx("readwrite",s=>s.delete(id));render()}}
+  if(a==="dl")it.parts.forEach((b,i)=>dl(b,`${it.id}-part${i+1}.${it.mime.includes("mp4")?"mp4":"webm"}`));
+  if(a==="play"){
+    urls=it.parts.map(b=>URL.createObjectURL(b));let k=0;const p=$("player");
+    p.onended=()=>{if(++k<urls.length){p.src=urls[k];p.play()}};p.src=urls[0];
+    $("playT").textContent=`${it.id} (${it.parts.length} part${it.parts.length>1?"s":""}, plays in sequence)`;
+    $("playI").textContent=`${new Date(it.ts).toLocaleString()} | ${it.reason}`;$("playD").showModal();p.play().catch(()=>{});
+  }
+});
+$("playX").onclick=()=>{$("playD").close()};
+$("playD").addEventListener("close",()=>{$("player").pause();$("player").removeAttribute("src");urls.forEach(URL.revokeObjectURL);urls=[]});
+$("expBtn").onclick=async()=>{const all=(await getAll()).map(({snap,parts,...m})=>({...m,parts:parts.length}));dl(new Blob([JSON.stringify(all,null,2)],{type:"application/json"}),"cyclone-ai-log.json")};
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
+
+/* ---------- settings + bindings ---------- */
+const fill=()=>{$("side").value=cfg.side;$("zone").value=cfg.zone;$("speed").value=cfg.speed;$("struggle").checked=cfg.struggle;$("silent").value=cfg.silent?"1":"0";$("hook").value=cfg.hook;lbl()};
+const lbl=()=>{$("zoneV").textContent=Math.round($("zone").value*100)+"%";$("speedV").textContent=$("speed").value};
+$("zone").oninput=$("speed").oninput=lbl;
+$("setBtn").onclick=()=>{fill();$("setD").showModal()};
+$("saveBtn").onclick=()=>{
+  const h=$("hook").value.trim();if(h&&!h.startsWith("https://"))return toast("Webhook must start with https://");
+  Object.assign(cfg,{side:$("side").value,zone:+$("zone").value,speed:+$("speed").value,struggle:$("struggle").checked,silent:$("silent").value==="1",hook:h});save();$("setD").close();toast("Settings saved");
+};
+document.querySelectorAll("[data-sim]").forEach(b=>b.onclick=()=>{S.sim={k:b.dataset.sim,until:performance.now()+1500};S.cool={};$("setD").close()});
+$("consent").checked=cfg.consent;
+$("consent").onchange=e=>{cfg.consent=e.target.checked;save();$("gateMsg").textContent=""};
+$("startBtn").onclick=()=>start(false);$("demoBtn").onclick=()=>start(true);
+$("toggle").onclick=()=>S.run?stop():(cfg.consent?start(S.demo):($("gate").hidden=false));
+$("panic").onclick=()=>S.run?raise("panic"):toast("Start the monitor first");
+$("flip").onclick=async()=>{S.facing=S.facing==="user"?"environment":"user";if(S.run&&!S.demo){try{await cam();stopSeg()}catch(e){toast("Could not switch camera")}}};
+$("dimBtn").onclick=()=>$("dim").hidden=false;$("dim").onclick=()=>$("dim").hidden=true;
+$("galBtn").onclick=()=>{render();$("galD").showModal()};
+render();
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
