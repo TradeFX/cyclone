@@ -1,420 +1,1269 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-950">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#050811">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https: blob: data:; worker-src 'self' blob:">
-<title>Cyclone AI | Cabin Security Monitor</title>
-<link rel="manifest" href="manifest.webmanifest">
-<style>
-:root{--bg:#050811;--card:#0d1322;--bd:#1a243b;--tx:#e2e8f0;--mut:#94a3b8;--pu:#a855f7;--red:#ef4444;--grn:#10b981;--amb:#f59e0b}
-*{box-sizing:border-box;margin:0}[hidden]{display:none!important}
-html,body{height:100%}
-body{background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.mono{font-family:ui-monospace,Menlo,Consolas,monospace}
-header,footer{background:#0b1120;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;flex-wrap:wrap}
-header{border-bottom:1px solid var(--bd)}footer{border-top:1px solid var(--bd);justify-content:center}
-h1{font-size:15px;letter-spacing:.14em;font-weight:800}h1 span{color:var(--pu)}
-.sub{font-size:11px;color:var(--mut)}
-.pill{padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid var(--bd);background:#111a2e;color:var(--mut)}
-.pill.on{color:var(--pu);border-color:#6b21a8}.pill.lock{color:var(--red);border-color:#991b1b}
-.stat{text-align:center;font-size:10px;color:var(--mut);text-transform:uppercase}.stat b{display:block;font-size:16px;color:var(--tx)}
-#stage{position:relative;flex:1;min-height:0;background:#000;overflow:hidden}
-#stage video,#stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.mir{transform:scaleX(-1)}#hud{pointer-events:none}
-.btn{border:1px solid var(--bd);background:#1a243b;color:var(--tx);padding:11px 14px;border-radius:12px;font:600 13px inherit;cursor:pointer;min-height:44px}
-.btn:hover{background:#243250}.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--pu);outline-offset:2px}
-.go{background:#059669;border-color:#34d399}.stop{background:#be123c;border-color:#fb7185}.panic{background:#dc2626;border-color:#f87171;flex:1;max-width:200px}.pri{background:#7c3aed;border-color:#a78bfa}
-.sm{padding:6px 10px;min-height:32px;font-size:12px}
-.ovl{position:absolute;left:50%;transform:translateX(-50%);padding:8px 18px;border-radius:12px;text-align:center;z-index:5}
-#threat{top:12px;background:#dc2626e6;border:2px solid #fca5a5;animation:p .7s infinite alternate}
-#threat b{display:block;letter-spacing:.08em}#threat small{font-size:11px}
-@keyframes p{to{opacity:.7}}
-#toast{bottom:14px;background:#0d1322f0;border:1px solid var(--bd);font-size:12px;max-width:90%}
-.tag{position:absolute;z-index:4;font-size:11px;color:#cbd5e1;background:#050811cc;border:1px solid var(--bd);border-radius:8px;padding:5px 10px}
-#hudinfo{left:10px;bottom:10px}#recbox{right:10px;top:10px;color:var(--red);border-color:#7f1d1d}
-#gate{position:absolute;inset:0;z-index:8;background:#050811f2;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:20px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:12px}
-.card p{font-size:12px;color:var(--mut)}label.chk{display:flex;gap:8px;font-size:12px;color:var(--tx);align-items:flex-start}
-dialog{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:16px;padding:0;width:min(92vw,640px);max-height:88vh;margin:auto}
-dialog::backdrop{background:#000b}.dh{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--bd);font-weight:700}
-.db{padding:14px 18px;display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:68vh}
-.row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);margin-bottom:4px}
-input[type=range]{width:100%;accent-color:var(--pu)}
-input[type=text],input[type=url],select{width:100%;background:#050811;color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:9px;font:inherit}
-.inc{display:flex;gap:10px;align-items:center;border:1px solid var(--bd);border-radius:12px;padding:8px;flex-wrap:wrap}
-.inc img{width:96px;height:64px;object-fit:cover;border-radius:8px;background:#000}.inc div.i{flex:1;min-width:150px;font-size:12px}
-.inc .r{color:#fca5a5;font-weight:700}.mut{color:var(--mut)}
-#dim{position:fixed;inset:0;z-index:50;background:#000;color:#334155;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:24px;cursor:pointer;font-size:11px}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Nexus Interior Cabin AI Defense System</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            orbitron: ['Orbitron', 'sans-serif'],
+          },
+          colors: {
+            hud: {
+              bg: '#050811',
+              card: '#0d1322',
+              border: '#1a243b',
+              cyan: '#06b6d4',
+              emerald: '#10b981',
+              amber: '#f59e0b',
+              red: '#ef4444',
+              purple: '#a855f7'
+            }
+          },
+          animation: {
+            'pulse-fast': 'pulse 0.6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'radar-spin': 'spin 4s linear infinite',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    
+    .scanlines {
+      background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.3) 50%
+      ), linear-gradient(
+        90deg,
+        rgba(255, 0, 0, 0.03),
+        rgba(0, 255, 0, 0.01),
+        rgba(0, 0, 255, 0.03)
+      );
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+    }
+
+    .mirror-mode {
+      transform: scaleX(-1);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #050811;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #06b6d4;
+    }
+  </style>
 </head>
-<body>
-<div id="dim" hidden role="button" tabindex="0" aria-label="Restore screen"><span id="dimclk" class="mono"></span><span>Cyclone AI monitoring. Tap to restore screen</span><span id="dimst">RECORDING</span></div>
+<body class="h-full text-slate-100 bg-[#050811] flex flex-col overflow-hidden font-sans antialiased">
 
-<header>
-  <div><h1>CYCLONE <span>AI</span></h1><p class="sub" id="aiTxt">Vision models not loaded</p></div>
-  <span class="pill" id="badge">STANDBY</span>
-  <div style="display:flex;gap:14px;align-items:center">
-    <div class="stat">Impact G<b id="g" class="mono">0.00</b></div>
-    <div class="stat">Vision Hz<b id="fps" class="mono">0</b></div>
+  <!-- STEALTH DISGUISE OVERLAY (DIM SCREEN) -->
+  <div id="stealthOverlay" class="hidden fixed inset-0 z-50 bg-black flex flex-col items-center justify-between p-6 cursor-pointer opacity-95">
+    <div class="w-full flex justify-between text-[10px] font-mono text-slate-800">
+      <span id="stealthClock">00:00:00</span>
+      <span>BATTERY SAVER ACTIVE</span>
+    </div>
+    <div class="text-center space-y-2 opacity-20">
+      <div class="w-2 h-2 rounded-full bg-slate-700 animate-ping mx-auto"></div>
+      <p class="text-[11px] font-mono text-slate-600">Tap anywhere to restore screen</p>
+    </div>
+    <div class="text-[9px] font-mono text-slate-900">SYSTEM PROTECTED</div>
   </div>
-</header>
 
-<main id="stage">
-  <video id="cam" playsinline muted autoplay aria-label="Cabin camera"></video>
-  <canvas id="demo" width="1280" height="720" hidden></canvas>
-  <canvas id="hud"></canvas>
-  <div id="threat" class="ovl" role="alert" hidden><b id="tt"></b><small id="ts"></small></div>
-  <div id="toast" class="ovl mono" role="status" hidden></div>
-  <div id="hudinfo" class="tag mono"><div id="gps">GPS: waiting</div><div><span id="clk">--</span> | <span id="sum">Cabin secure</span></div></div>
-  <div id="recbox" class="tag mono" hidden>REC <b id="rect">00:00</b></div>
+  <!-- TOP AUTOMOTIVE HUD BAR -->
+  <header class="bg-slate-900/90 border-b border-slate-800 backdrop-blur-md px-3 py-2 z-20 flex flex-wrap items-center justify-between gap-2 shrink-0">
+    <!-- Brand & Vision AI Status -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/40 flex items-center justify-center text-purple-400 font-bold">
+          <i class="ph-bold ph-eye animate-pulse"></i>
+        </div>
+        <div>
+          <h1 class="font-orbitron font-extrabold text-sm tracking-wider text-slate-100 flex items-center gap-1.5">
+            NEXUS <span class="text-purple-400 text-xs font-semibold px-1.5 py-0.5 rounded bg-purple-950 border border-purple-800">CABIN AI DEFENSE</span>
+          </h1>
+          <p class="text-[10px] text-slate-400 font-mono" id="aiModelStatusText">Loading Vision Pipeline (Pose, Face, Objects)...</p>
+        </div>
+      </div>
 
-  <div id="gate">
-    <div class="card">
-      <h2 style="font-size:20px;letter-spacing:.08em">CYCLONE <span style="color:var(--pu)">AI</span></h2>
-      <p>Cabin security monitor. Detects possible weapons, covered faces and physical struggles, and keeps a rolling evidence buffer on this device. Video never leaves your device unless you export it. Detections are automated estimates and can be wrong; treat them as prompts to check, not proof.</p>
-      <label class="chk"><input type="checkbox" id="consent"><span>I will tell everyone in the vehicle that the cabin is recorded, as required by local law (for example POPIA in South Africa).</span></label>
-      <button class="btn pri" id="startBtn">Enable cabin camera</button>
-      <button class="btn sm" id="demoBtn">Run simulator (no camera)</button>
-      <p id="gateMsg" role="alert"></p>
+      <!-- Live State Badge -->
+      <div id="statusBadge" class="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5 transition-all">
+        <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+        <span id="statusLabel">STANDBY</span>
+      </div>
+    </div>
+
+    <!-- Live Telemetry & Alarm Mode Controls -->
+    <div class="flex items-center gap-3 sm:gap-5 font-mono">
+      <!-- Silent Mode Toggle -->
+      <button id="toggleSilentModeBtn" title="Toggle Silent Alarm vs Audible Alert" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs transition">
+        <i id="silentModeIcon" class="ph-bold ph-speaker-slash text-amber-400"></i>
+        <span id="silentModeLabel" class="text-amber-400 font-bold">SILENT ALARM</span>
+      </button>
+
+      <!-- G-Force Readout -->
+      <div class="text-center hidden sm:block">
+        <p class="text-[9px] uppercase tracking-wider text-slate-400">Impact G</p>
+        <div class="flex items-baseline justify-center gap-0.5">
+          <span id="gForceValue" class="font-orbitron text-lg font-bold text-emerald-400">1.00</span>
+          <span class="text-[10px] text-slate-400">G</span>
+        </div>
+      </div>
+
+      <!-- AI FPS Counter -->
+      <div class="text-center border-l border-slate-800 pl-3">
+        <p class="text-[9px] uppercase tracking-wider text-slate-400">Vision Rate</p>
+        <p id="fpsValue" class="font-orbitron text-base font-bold text-slate-300">0 <span class="text-[10px] text-slate-500">FPS</span></p>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CABIN VIEWPORT -->
+  <main class="relative flex-1 bg-black overflow-hidden flex items-center justify-center">
+    <!-- Camera Video Element (Front Camera Mirrored by default) -->
+    <video id="cameraVideo" class="w-full h-full object-cover mirror-mode" playsinline autoplay muted></video>
+
+    <!-- Synthetic Road / Cabin Animation Canvas -->
+    <canvas id="demoCanvas" class="hidden absolute inset-0 w-full h-full object-cover"></canvas>
+
+    <!-- AI Bounding Box, Pose Skeleton & HUD Overlay Canvas -->
+    <canvas id="hudCanvas" class="absolute inset-0 w-full h-full pointer-events-none z-10 mirror-mode"></canvas>
+
+    <!-- Scanline Visual Overlay -->
+    <div class="scanlines absolute inset-0 z-10 opacity-30"></div>
+
+    <!-- THREAT ALERTS (STRUGGLE / BALACLAVA / WEAPON) -->
+    <div id="threatBanner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-red-600/90 border-2 border-red-400 text-white px-6 py-2.5 rounded-xl shadow-2xl backdrop-blur-md animate-pulse-fast flex items-center gap-3">
+      <i id="threatIcon" class="ph-bold ph-warning-octagon text-3xl text-yellow-300"></i>
+      <div>
+        <p id="threatTitle" class="font-orbitron font-extrabold text-sm sm:text-base tracking-wider text-white">CABIN STRUGGLE DETECTED</p>
+        <p id="threatSubtitle" class="text-xs font-mono text-red-100">RAPID INTRUSION / PHYSICAL ATTACK</p>
+      </div>
+    </div>
+
+    <!-- INCIDENT LOCKED NOTIFICATION -->
+    <div id="lockBanner" class="hidden absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-emerald-600/90 border border-emerald-400 text-white px-5 py-2 rounded-lg shadow-xl backdrop-blur-md flex items-center gap-2 font-mono text-xs sm:text-sm">
+      <i class="ph-fill ph-lock text-lg text-emerald-200"></i>
+      <span>EVIDENCE SNAPSHOT & CLIP LOCKED TO MEMORY</span>
+    </div>
+
+    <!-- On-Screen HUD Overlay Details -->
+    <div class="absolute bottom-3 left-3 z-10 font-mono text-[11px] text-slate-300/80 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 flex flex-col gap-0.5">
+      <div class="flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping"></span>
+        <span id="gpsCoordsText">GPS: Acquiring signal...</span>
+      </div>
+      <div class="text-[10px] text-slate-400 flex items-center gap-2">
+        <span id="hudTimestamp">2026-11-24 00:00:00</span>
+        <span>|</span>
+        <span id="threatSummaryText">Cabin Normal</span>
+      </div>
+    </div>
+
+    <!-- Active Recording Box -->
+    <div id="recordingBox" class="hidden absolute top-3 right-3 z-10 bg-slate-950/80 border border-red-500/50 backdrop-blur-md px-3 py-1.5 rounded-lg flex items-center gap-2 font-mono text-xs text-red-400">
+      <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+      <span class="font-bold">CABIN REC</span>
+      <span id="recTimerText" class="font-orbitron font-medium text-slate-200">00:00</span>
+    </div>
+
+    <!-- Camera / Permission Overlay -->
+    <div id="permissionOverlay" class="absolute inset-0 z-30 bg-slate-950/90 backdrop-blur-lg flex flex-col items-center justify-center p-6 text-center">
+      <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4">
+        <div class="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-3xl">
+          <i class="ph-duotone ph-shield-warning"></i>
+        </div>
+        <div>
+          <h2 class="font-orbitron text-xl font-bold text-slate-100">Interior Cabin Defense</h2>
+          <p class="text-xs text-slate-400 mt-1">Uses front camera to detect weapons, masked faces/balaclavas, and physical struggles inside the vehicle.</p>
+        </div>
+
+        <div class="w-full flex flex-col gap-2 mt-2">
+          <button id="startPermissionBtn" class="w-full py-3 px-4 rounded-xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/20 active:scale-98 transition flex items-center justify-center gap-2">
+            <i class="ph-bold ph-power text-lg"></i>
+            <span>Enable Interior Camera System</span>
+          </button>
+          
+          <button id="enableDemoModeBtn" class="w-full py-2.5 px-4 rounded-xl text-xs font-mono bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center justify-center gap-2">
+            <i class="ph-bold ph-play-circle text-base text-amber-400"></i>
+            <span>Run Synthetic Threat Simulator</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTTOM CONTROL DOCK -->
+  <footer class="bg-slate-900 border-t border-slate-800 px-3 py-3 z-20 shrink-0">
+    <div class="max-w-4xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+      
+      <!-- Primary Switch -->
+      <button id="toggleDashcamBtn" class="flex-1 max-w-[180px] sm:max-w-[200px] py-3 px-3 sm:px-4 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-lg shadow-emerald-950/50 transition flex items-center justify-center gap-2 border border-emerald-400/30">
+        <i class="ph-bold ph-record text-base sm:text-lg"></i>
+        <span id="dashcamBtnLabel">START CABIN MONITOR</span>
+      </button>
+
+      <!-- Manual Lock / Panic Button -->
+      <button id="manualLockBtn" class="flex-1 max-w-[180px] sm:max-w-[200px] py-3 px-3 sm:px-4 rounded-xl font-extrabold text-xs sm:text-sm bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 active:scale-95 text-white shadow-lg shadow-red-950/60 transition flex items-center justify-center gap-2 border border-red-400/40">
+        <i class="ph-fill ph-warning text-base sm:text-lg"></i>
+        <span>PANIC / LOCK</span>
+      </button>
+
+      <!-- Action Utilities -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Flip Camera (Front/Rear) -->
+        <button id="flipCameraBtn" title="Switch Camera (Front/Rear)" class="p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 active:scale-95 transition flex items-center justify-center">
+          <i class="ph-bold ph-camera-rotate text-lg sm:text-xl"></i>
+        </button>
+
+        <!-- Dim Stealth Screen Toggle -->
+        <button id="stealthScreenBtn" title="Dim Screen for Stealth Recording" class="p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-400 border border-slate-700 active:scale-95 transition flex items-center justify-center">
+          <i class="ph-bold ph-moon-stars text-lg sm:text-xl"></i>
+        </button>
+
+        <!-- Incident Drawer -->
+        <button id="openGalleryBtn" class="relative p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 active:scale-95 transition flex items-center justify-center">
+          <i class="ph-bold ph-folder-star text-lg sm:text-xl"></i>
+          <span id="galleryBadge" class="hidden absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white font-mono text-[10px] font-bold flex items-center justify-center border-2 border-slate-900">0</span>
+        </button>
+
+        <!-- Settings Modal -->
+        <button id="openSettingsBtn" class="p-2.5 sm:p-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 active:scale-95 transition flex items-center justify-center">
+          <i class="ph-bold ph-gear text-lg sm:text-xl"></i>
+        </button>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- SAVED INCIDENTS GALLERY MODAL -->
+  <div id="galleryModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="ph-bold ph-shield-check text-xl text-purple-400"></i>
+          <h3 class="font-orbitron font-bold text-base text-slate-100">Protected Cabin Evidence</h3>
+        </div>
+        <button id="closeGalleryBtn" class="p-1 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition">
+          <i class="ph-bold ph-x text-xl"></i>
+        </button>
+      </div>
+
+      <div id="galleryContainer" class="p-4 overflow-y-auto space-y-3 flex-1">
+        <div id="emptyGalleryState" class="text-center py-12 text-slate-500">
+          <i class="ph-duotone ph-shield-slash text-4xl mb-2 text-slate-600"></i>
+          <p class="text-sm">No locked cabin evidence clips yet.</p>
+        </div>
+      </div>
+
+      <div class="px-5 py-3 border-t border-slate-800 bg-slate-950 flex items-center justify-between">
+        <span id="galleryCountLabel" class="text-xs font-mono text-slate-400">0 Clips Saved</span>
+        <button id="exportAllBtn" class="px-3 py-1.5 rounded-lg text-xs font-mono bg-slate-800 hover:bg-slate-700 text-purple-400 border border-slate-700 transition">
+          Export Security Log
+        </button>
+      </div>
     </div>
   </div>
-</main>
 
-<footer>
-  <button class="btn go" id="toggle">START MONITOR</button>
-  <button class="btn panic" id="panic">PANIC / LOCK</button>
-  <button class="btn" id="flip" aria-label="Switch camera">Flip</button>
-  <button class="btn" id="dimBtn" aria-label="Dim screen">Dim</button>
-  <button class="btn" id="galBtn">Evidence <span id="cnt">0</span></button>
-  <button class="btn" id="setBtn" aria-label="Settings">Settings</button>
-</footer>
+  <!-- VIDEO PLAYER MODAL -->
+  <div id="videoPlayerModal" class="hidden fixed inset-0 z-60 bg-black/90 backdrop-blur-lg flex items-center justify-center p-3">
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+      <div class="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+        <span id="videoPlayerTitle" class="font-mono text-xs font-bold text-slate-200">Evidence Playback</span>
+        <button id="closePlayerBtn" class="p-1 rounded-lg text-slate-400 hover:text-slate-100 transition">
+          <i class="ph-bold ph-x text-xl"></i>
+        </button>
+      </div>
+      <div class="relative aspect-video bg-black flex items-center justify-center">
+        <video id="incidentVideoPlayer" class="w-full h-full object-contain" controls autoplay></video>
+      </div>
+      <div id="videoTelemetryDetails" class="p-3 bg-slate-950 border-t border-slate-800 font-mono text-xs text-slate-300 flex flex-wrap justify-between gap-2"></div>
+    </div>
+  </div>
 
-<dialog id="galD"><div class="dh"><span>Evidence</span><button class="btn sm" data-close>Close</button></div>
-  <div class="db" id="list"></div>
-  <div class="dh" style="border-top:1px solid var(--bd);border-bottom:0"><span id="galLbl" class="mono mut" style="font-size:12px">0 incidents</span><button class="btn sm" id="expBtn">Export log (JSON)</button></div></dialog>
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-orbitron font-bold text-base text-slate-100 flex items-center gap-2">
+          <i class="ph-bold ph-sliders text-purple-400"></i> Cabin AI Detector Settings
+        </h3>
+        <button id="closeSettingsBtn" class="p-1 rounded-lg text-slate-400 hover:text-slate-100 transition">
+          <i class="ph-bold ph-x text-xl"></i>
+        </button>
+      </div>
 
-<dialog id="playD"><div class="dh"><span id="playT">Playback</span><button class="btn sm" id="playX">Close</button></div>
-  <video id="player" controls playsinline style="width:100%;background:#000;max-height:60vh"></video><div class="db mono" id="playI" style="font-size:12px"></div></dialog>
+      <div class="space-y-3 font-mono text-xs text-slate-300">
+        <!-- Driver Zone Boundary Slider -->
+        <div>
+          <div class="flex justify-between mb-1">
+            <label class="text-slate-400">Driver Zone X Boundary</label>
+            <span id="driverZoneValLabel" class="text-purple-400 font-bold">50% Screen</span>
+          </div>
+          <input id="driverZoneSlider" type="range" min="0.3" max="0.7" step="0.05" value="0.5" class="w-full accent-purple-400">
+        </div>
 
-<dialog id="setD"><div class="dh"><span>Settings</span><button class="btn sm" data-close>Close</button></div>
-  <div class="db">
-    <div><div class="row"><label for="side">Driver seat appears on</label></div><select id="side"><option value="right">Right of screen</option><option value="left">Left of screen</option></select></div>
-    <div><div class="row"><label for="zone">Driver zone boundary</label><span id="zoneV"></span></div><input id="zone" type="range" min=".3" max=".7" step=".05"></div>
-    <div><div class="row"><label for="speed">Struggle speed threshold (shoulder-widths/s)</label><span id="speedV"></span></div><input id="speed" type="range" min="1.5" max="6" step=".5"></div>
-    <label class="chk"><input type="checkbox" id="struggle"><span>Struggle detection</span></label>
-    <div><div class="row"><label for="silent">Alert sound</label></div><select id="silent"><option value="1">Silent (recommended)</option><option value="0">Audible</option></select></div>
-    <div><div class="row"><label for="hook">Alert webhook (HTTPS, optional; sends incident details only, no video)</label></div><input id="hook" type="url" placeholder="https://"></div>
-    <div><div class="row"><label for="model">Extra detector model (.tflite, e.g. firearms)</label></div><input id="model" type="file" accept=".tflite"></div>
-    <div id="simBox" hidden><div class="row">Simulator</div><div style="display:flex;gap:8px"><button class="btn sm" data-sim="struggle">Struggle</button><button class="btn sm" data-sim="mask">Face cover</button><button class="btn sm" data-sim="weapon">Weapon</button></div></div>
-    <button class="btn pri" id="saveBtn">Save</button>
-  </div></dialog>
+        <!-- Struggle Hand Velocity Threshold -->
+        <div>
+          <div class="flex justify-between mb-1">
+            <label class="text-slate-400">Struggle/Tackle Velocity Sensitivity</label>
+            <span id="velocityValLabel" class="text-purple-400 font-bold">High</span>
+          </div>
+          <input id="velocitySlider" type="range" min="0.08" max="0.25" step="0.02" value="0.12" class="w-full accent-purple-400">
+        </div>
 
-<script type="module">
-import {ObjectDetector,PoseLandmarker,FaceDetector,FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
-const $=id=>document.getElementById(id);
-const WASM="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm",MP="https://storage.googleapis.com/mediapipe-models/";
-const SEG=15,POST=10,MAXINC=25,IMPACT_G=2.5,HZ=15;
-const WEAPONS={knife:.5,scissors:.6,"baseball bat":.5},CUSTOM=/gun|pistol|firearm|rifle|knife|blade|weapon/;
-const MIME=["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm","video/mp4"].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||"";
-const EXT=MIME.includes("mp4")?"mp4":"webm";
-let cfg={side:"right",zone:.5,speed:3,struggle:true,silent:true,hook:"",consent:false};
-try{Object.assign(cfg,JSON.parse(localStorage.getItem("cyclone.cfg")||"{}"))}catch(e){}
-const save=()=>{try{localStorage.setItem("cyclone.cfg",JSON.stringify(cfg))}catch(e){}};
-const S={run:false,demo:false,facing:"user",mir:true,stream:null,rec:null,segs:[],pend:null,fin:false,prev:[],pt:0,ev:[],wh:[],maskT:0,last:0,ts:0,ct:-1,n:0,t0:0,cool:{},g:0,peak:0,pos:null,gps:null,wake:null,sim:null,hz:0};
-let pose,face,obj,obj2,vis,aiP=null,motionOn=false,toastT,thrT;
-const video=$("cam"),hud=$("hud"),ctx=hud.getContext("2d"),demo=$("demo"),dctx=demo.getContext("2d");
+        <!-- Custom Model Loader -->
+        <div class="border-t border-slate-800 pt-3">
+          <label class="block mb-1 text-slate-400">Load Custom Weapon/Balaclava Model (.tflite)</label>
+          <input id="customModelFileInput" type="file" accept=".tflite" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-950 file:text-purple-300 border border-slate-800 rounded-xl p-1 bg-slate-950">
+        </div>
 
-/* ---------- storage (IndexedDB) ---------- */
-const dbp=new Promise((ok,no)=>{const r=indexedDB.open("cyclone",1);r.onupgradeneeded=()=>r.result.createObjectStore("inc",{keyPath:"id"});r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
-const tx=async(m,f)=>{const d=await dbp;return new Promise((ok,no)=>{const t=d.transaction("inc",m),r=f(t.objectStore("inc"));t.oncomplete=()=>ok(r.result);t.onerror=()=>no(t.error)})};
-const getAll=async()=>(await tx("readonly",s=>s.getAll())).sort((a,b)=>b.ts-a.ts);
+        <!-- Synthetic Simulator Trigger Buttons -->
+        <div class="border-t border-slate-800 pt-3">
+          <label class="block mb-2 text-slate-400">Synthetic Cabin Threat Simulator</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button id="simStruggleBtn" class="py-2 px-1 rounded-lg bg-red-950/80 border border-red-800 text-red-300 font-mono text-[10px] hover:bg-red-900 transition">
+              Simulate Struggle
+            </button>
+            <button id="simMaskBtn" class="py-2 px-1 rounded-lg bg-amber-950/80 border border-amber-800 text-amber-300 font-mono text-[10px] hover:bg-amber-900 transition">
+              Simulate Mask
+            </button>
+            <button id="simBladeBtn" class="py-2 px-1 rounded-lg bg-purple-950/80 border border-purple-800 text-purple-300 font-mono text-[10px] hover:bg-purple-900 transition">
+              Simulate Blade
+            </button>
+          </div>
+        </div>
+      </div>
 
-/* ---------- helpers ---------- */
-function toast(m,ms=3500){const e=$("toast");e.textContent=m;e.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>e.hidden=true,ms)}
-function beep(f=880,n=2){if(cfg.silent)return;try{const a=beep.c||(beep.c=new(window.AudioContext||window.webkitAudioContext)());a.resume();for(let i=0;i<n;i++){const o=a.createOscillator(),g=a.createGain(),t=a.currentTime+i*.2;o.frequency.value=f;g.gain.setValueAtTime(.2,t);g.gain.exponentialRampToValueAtTime(.001,t+.15);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+.15)}}catch(e){}}
-function setBadge(t,c){const b=$("badge");b.textContent=t;b.className="pill "+(c||"")}
-const dl=(blob,name)=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)};
-const mx=x=>S.mir?1-x:x,inDriver=sx=>cfg.side==="left"?sx<cfg.zone:sx>cfg.zone;
-const bx=(x,bw,w)=>S.mir?w-x-bw:x;
+      <div class="pt-2">
+        <button id="saveSettingsBtn" class="w-full py-2.5 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white transition">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
 
-/* ---------- vision models ---------- */
-async function loadAI(){
-  $("aiTxt").textContent="Loading vision models...";
-  try{vis=await FilesetResolver.forVisionTasks(WASM)}catch(e){return $("aiTxt").textContent="AI offline (no network). Recording only."}
-  for(const d of ["GPU","CPU"]){
-    try{
-      const b=u=>({baseOptions:{modelAssetPath:MP+u,delegate:d},runningMode:"VIDEO"});
-      pose=await PoseLandmarker.createFromOptions(vis,{...b("pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"),numPoses:3});
-      face=await FaceDetector.createFromOptions(vis,{...b("face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite"),minDetectionConfidence:.4});
-      obj=await ObjectDetector.createFromOptions(vis,{...b("object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite"),scoreThreshold:.35,maxResults:10});
-      return $("aiTxt").textContent=`Vision active (${d})`;
-    }catch(e){console.warn(d,e);pose=face=obj=null}
-  }
-  $("aiTxt").textContent="AI failed to load. Recording only.";
-}
-$("model").addEventListener("change",async e=>{
-  const f=e.target.files[0];if(!f)return;
-  try{if(!vis)vis=await FilesetResolver.forVisionTasks(WASM);
-    obj2=await ObjectDetector.createFromOptions(vis,{baseOptions:{modelAssetBuffer:new Uint8Array(await f.arrayBuffer())},scoreThreshold:.5,runningMode:"VIDEO"});
-    toast("Extra model loaded: "+f.name)}catch(err){toast("Model rejected: "+err.message,6000)}
-});
 
-/* ---------- sensors ---------- */
-async function sensors(){
-  if(!motionOn){
-    try{if(window.DeviceMotionEvent&&DeviceMotionEvent.requestPermission&&await DeviceMotionEvent.requestPermission()!=="granted")throw 0;
-      addEventListener("devicemotion",motion);motionOn=true}catch(e){}
-  }
-  if(navigator.geolocation&&S.gps==null)S.gps=navigator.geolocation.watchPosition(p=>{S.pos=p.coords;$("gps").textContent=`GPS ${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)} (+/-${Math.round(p.coords.accuracy)} m)`},()=>$("gps").textContent="GPS unavailable",{enableHighAccuracy:true,maximumAge:2000,timeout:10000});
-}
-function motion(e){
-  const a=e.acceleration,g=e.accelerationIncludingGravity;let m;
-  if(a&&a.x!=null)m=Math.hypot(a.x,a.y,a.z)/9.80665;else if(g&&g.x!=null)m=Math.abs(Math.hypot(g.x,g.y,g.z)/9.80665-1);else return;
-  S.g=S.g*.7+m*.3;S.peak=Math.max(S.peak,m);$("g").textContent=S.g.toFixed(2);
-  if(S.run&&m>=IMPACT_G)raise("impact",m.toFixed(1)+" G");
-}
-async function wake(){try{if(S.run&&"wakeLock" in navigator&&!S.wake){S.wake=await navigator.wakeLock.request("screen");S.wake.onrelease=()=>S.wake=null}}catch(e){}}
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)wake();else if(S.run)toast("Keep Cyclone AI in the foreground; detection pauses in the background",6000)});
+  <!-- MEDIAPIPE TASKS VISION SCRIPT -->
+  <script type="module">
+    import { ObjectDetector, PoseLandmarker, FaceDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
-/* ---------- camera + recording ---------- */
-async function cam(){
-  if(S.stream)S.stream.getTracks().forEach(t=>t.stop());
-  S.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:S.facing,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
-  S.stream.getVideoTracks()[0].onended=()=>{if(S.run){toast("Camera disconnected",6000);stop()}};
-  video.srcObject=S.stream;await video.play();
-  S.mir=S.facing==="user";video.classList.toggle("mir",S.mir);video.hidden=false;demo.hidden=true;
-}
-function segStart(){
-  if(!S.run)return;
-  const st=S.demo?demo.captureStream(24):S.stream;if(!st)return;
-  const ch=[];let r;
-  try{r=new MediaRecorder(st,MIME?{mimeType:MIME}:undefined)}catch(e){return toast("Recording is not supported on this device",6000)}
-  S.rec=r;r.ondataavailable=e=>e.data.size&&ch.push(e.data);
-  r.onstop=async()=>{
-    const b=new Blob(ch,{type:r.mimeType||MIME});if(b.size)S.segs=[...S.segs,b].slice(-3);
-    if(S.fin){S.fin=false;await finalize()}
-    segStart();
-  };
-  r.start(1000);setTimeout(()=>{if(r.state==="recording")r.stop()},SEG*1000);
-}
-const stopSeg=()=>{if(S.rec&&S.rec.state==="recording")S.rec.stop()};
+    // Application State
+    let objectDetector = null;
+    let poseLandmarker = null;
+    let faceDetector = null;
+    let aiPipelineReady = false;
+    let syntheticAiMode = false;
 
-/* ---------- incidents ---------- */
-function lock(reason){
-  if(S.pend)return;
-  const c=document.createElement("canvas");c.width=hud.width||1280;c.height=hud.height||720;
-  const x=c.getContext("2d");x.save();
-  if(S.mir&&!S.demo)x.setTransform(-1,0,0,1,c.width,0);
-  x.drawImage(S.demo?demo:video,0,0,c.width,c.height);x.restore();
-  x.drawImage(hud,0,0);
-  S.pend={id:"EV-"+Date.now().toString(36).toUpperCase(),ts:Date.now(),reason,g:+S.peak.toFixed(2),
-    coords:S.pos?{lat:+S.pos.latitude.toFixed(5),lng:+S.pos.longitude.toFixed(5)}:null,snap:c.toDataURL("image/jpeg",.8)};
-  S.peak=0;setBadge("EVIDENCE LOCKED","lock");
-  setTimeout(()=>{S.fin=true;stopSeg()},POST*1000);
-}
-async function finalize(){
-  const p=S.pend;if(!p)return;S.pend=null;
-  const parts=S.segs.slice(-3);
-  const item={...p,parts,mime:MIME,size:parts.reduce((a,b)=>a+b.size,0)};
-  try{await tx("readwrite",s=>s.put(item));
-    const all=await getAll();for(const o of all.slice(MAXINC))await tx("readwrite",s=>s.delete(o.id));
-    toast("Evidence saved: "+p.id)}catch(e){toast("Could not save evidence: storage full or blocked",8000)}
-  if(S.run)setBadge("MONITORING","on");
-  render();
-}
-const KIND={struggle:["CABIN STRUGGLE DETECTED","Rapid reach into driver zone"],mask:["POSSIBLE FACE COVERING","Occupant faces camera, no face found"],weapon:["POSSIBLE WEAPON","Flagged: "],impact:["IMPACT DETECTED","Peak "],panic:["PANIC TRIGGERED","Manual lock"]};
-function raise(kind,detail=""){
-  const n=performance.now();
-  if(n-(S.cool[kind]??-1e9)<(kind==="panic"?1500:30000))return;
-  S.cool[kind]=n;
-  const sim=S.demo?" [SIMULATED]":"",[t,s]=KIND[kind];
-  $("tt").textContent=t+sim;$("ts").textContent=s+detail;$("threat").hidden=false;$("sum").textContent=t;
-  clearTimeout(thrT);thrT=setTimeout(()=>{$("threat").hidden=true;$("sum").textContent="Cabin secure"},6000);
-  beep(1200,3);lock(t+(detail?` (${detail})`:"")+sim);
-  const u=cfg.hook;
-  if(u&&u.startsWith("https://"))fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,
-    body:JSON.stringify({app:"Cyclone AI",kind,detail,simulated:S.demo,time:new Date().toISOString(),location:S.pos?{lat:S.pos.latitude,lng:S.pos.longitude}:null})}).catch(()=>{});
-}
+    let facingMode = 'user'; // front camera default for cabin
+    let dashcamRunning = false;
+    let isSilentAlarm = true; // silent mode default for anti-hijack safety
+    let mediaStream = null;
+    let mediaRecorder = null;
+    let segmentChunks = [];
+    let rollingBuffer = [];
+    let segmentDurationSec = 30;
 
-/* ---------- detection loop ---------- */
-function frame(now){
-  if(!S.run)return;requestAnimationFrame(frame);
-  if(now-S.last<1000/HZ)return;
-  S.last=now;S.n++;
-  const w=S.demo?1280:video.videoWidth,h=S.demo?720:video.videoHeight;if(!w)return;
-  if(hud.width!==w||hud.height!==h){hud.width=w;hud.height=h}
-  ctx.clearRect(0,0,w,h);zoneHUD(w,h);
-  const ts=Math.max(now,S.ts+1);S.ts=ts;
-  try{
-    if(S.demo)simFrame(w,h);
-    else if(video.readyState>=2&&video.currentTime!==S.ct){S.ct=video.currentTime;analyse(ts,w,h)}
-  }catch(e){console.warn("frame",e)}
-}
-function analyse(ts,w,h){
-  const people=pose?pose.detectForVideo(video,ts).landmarks||[]:[];
-  const faces=face?face.detectForVideo(video,ts).detections||[]:[];
-  faces.forEach(f=>{const b=f.boundingBox;ctx.strokeStyle="#10b981";ctx.lineWidth=2;ctx.strokeRect(bx(b.originX,b.width,w),b.originY,b.width,b.height)});
-  const dt=(ts-S.pt)/1000,cur=[];let facing=false,missing=false;
-  for(const p of people){
-    const a=p[11],b=p[12];if(!a||!b||a.visibility<.5||b.visibility<.5)continue;
-    const sw=Math.hypot((a.x-b.x)*w,(a.y-b.y)*h);if(sw<20)continue;
-    const c={cx:(a.x+b.x)/2,sw,wr:[15,16].map(i=>p[i]&&p[i].visibility>.5?{x:p[i].x*w,y:p[i].y*h,sx:mx(p[i].x)}:null)};
-    cur.push(c);skeleton(p,w,h);
-    const pv=S.prev.reduce((m,q)=>Math.abs(q.cx-c.cx)<.2&&(!m||Math.abs(q.cx-c.cx)<Math.abs(m.cx-c.cx))?q:m,null);
-    const passenger=!inDriver(mx(c.cx));
-    c.wr.forEach((q,k)=>{
-      if(!q||!pv||!pv.wr[k]||dt<=0||dt>.5)return;
-      const v=Math.hypot(q.x-pv.wr[k].x,q.y-pv.wr[k].y)/c.sw/dt;
-      if(passenger&&inDriver(q.sx)){ctx.fillStyle="rgba(239,68,68,.35)";ctx.beginPath();ctx.arc(bx(q.x,0,w),q.y,24,0,7);ctx.fill();if(v>cfg.speed)S.ev.push(ts)}
+    let lockedIncidents = [];
+    let isIncidentLocking = false;
+
+    // Interior Security Parameters
+    let driverZoneXBoundary = 0.5; // Left half vs right half of screen
+    let velocityThreshold = 0.12; // Hand intrusion speed
+    let prevLandmarks = null;
+    let prevLandmarkTime = performance.now();
+
+    let consecutiveMaskedFrames = 0;
+    const MASK_FRAME_THRESHOLD = 5;
+
+    // Telemetry & Sensors
+    let currentGForce = 1.0;
+    let maxGForce = 1.0;
+    let currentCoords = null;
+    let wakeLock = null;
+
+    // Timing & FPS
+    let lastFrameTime = performance.now();
+    let frameCount = 0;
+    let recStartTime = 0;
+    let recTimerInterval = null;
+
+    // Web Audio Synthesizer
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    // DOM Elements
+    const video = document.getElementById('cameraVideo');
+    const hudCanvas = document.getElementById('hudCanvas');
+    const hudCtx = hudCanvas.getContext('2d');
+    const demoCanvas = document.getElementById('demoCanvas');
+    const demoCtx = demoCanvas.getContext('2d');
+
+    const statusBadge = document.getElementById('statusBadge');
+    const gForceValue = document.getElementById('gForceValue');
+    const fpsValue = document.getElementById('fpsValue');
+    const aiModelStatusText = document.getElementById('aiModelStatusText');
+    const gpsCoordsText = document.getElementById('gpsCoordsText');
+    const hudTimestamp = document.getElementById('hudTimestamp');
+    const threatSummaryText = document.getElementById('threatSummaryText');
+    const threatBanner = document.getElementById('threatBanner');
+    const threatTitle = document.getElementById('threatTitle');
+    const threatSubtitle = document.getElementById('threatSubtitle');
+    const threatIcon = document.getElementById('threatIcon');
+    const lockBanner = document.getElementById('lockBanner');
+    const recordingBox = document.getElementById('recordingBox');
+    const recTimerText = document.getElementById('recTimerText');
+
+    const stealthOverlay = document.getElementById('stealthOverlay');
+    const stealthClock = document.getElementById('stealthClock');
+
+    const toggleSilentModeBtn = document.getElementById('toggleSilentModeBtn');
+    const silentModeIcon = document.getElementById('silentModeIcon');
+    const silentModeLabel = document.getElementById('silentModeLabel');
+
+    const permissionOverlay = document.getElementById('permissionOverlay');
+    const startPermissionBtn = document.getElementById('startPermissionBtn');
+    const enableDemoModeBtn = document.getElementById('enableDemoModeBtn');
+    const toggleDashcamBtn = document.getElementById('toggleDashcamBtn');
+    const dashcamBtnLabel = document.getElementById('dashcamBtnLabel');
+    const manualLockBtn = document.getElementById('manualLockBtn');
+    const flipCameraBtn = document.getElementById('flipCameraBtn');
+    const stealthScreenBtn = document.getElementById('stealthScreenBtn');
+    const openGalleryBtn = document.getElementById('openGalleryBtn');
+    const galleryBadge = document.getElementById('galleryBadge');
+
+    const galleryModal = document.getElementById('galleryModal');
+    const closeGalleryBtn = document.getElementById('closeGalleryBtn');
+    const galleryContainer = document.getElementById('galleryContainer');
+    const emptyGalleryState = document.getElementById('emptyGalleryState');
+    const galleryCountLabel = document.getElementById('galleryCountLabel');
+
+    const videoPlayerModal = document.getElementById('videoPlayerModal');
+    const closePlayerBtn = document.getElementById('closePlayerBtn');
+    const incidentVideoPlayer = document.getElementById('incidentVideoPlayer');
+    const videoTelemetryDetails = document.getElementById('videoTelemetryDetails');
+
+    const settingsModal = document.getElementById('settingsModal');
+    const openSettingsBtn = document.getElementById('openSettingsBtn');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const driverZoneSlider = document.getElementById('driverZoneSlider');
+    const driverZoneValLabel = document.getElementById('driverZoneValLabel');
+    const velocitySlider = document.getElementById('velocitySlider');
+    const velocityValLabel = document.getElementById('velocityValLabel');
+    const customModelFileInput = document.getElementById('customModelFileInput');
+
+    // -------------------------------------------------------------
+    // 1. SOUND & AUDIO ALERT UTILITY
+    // -------------------------------------------------------------
+    function playBeep(freq = 880, type = 'sine', duration = 0.15, repeat = 1) {
+      if (isSilentAlarm) return; // Silent mode suppresses audio
+      try {
+        if (!audioCtx) audioCtx = new AudioCtxClass();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        for (let i = 0; i < repeat; i++) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.18);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.18);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.18 + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(audioCtx.currentTime + i * 0.18);
+          osc.stop(audioCtx.currentTime + i * 0.18 + duration);
+        }
+      } catch (e) {
+        console.warn('Audio blocked or unavailable', e);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 2. MEDIAPIPE TRIPLE-MODEL PIPELINE INITIALIZATION
+    // -------------------------------------------------------------
+    async function initCabinVisionPipeline() {
+      try {
+        aiModelStatusText.textContent = "Loading MediaPipe Vision Tasks (Pose, Face, Objects)...";
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+        );
+
+        // 1. Pose Landmarker
+        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+            delegate: "GPU"
+          },
+          runningMode: "VIDEO",
+          numPoses: 2
+        });
+
+        // 2. Face Detector
+        faceDetector = await FaceDetector.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+            delegate: "GPU"
+          },
+          runningMode: "VIDEO"
+        });
+
+        // 3. Object Detector
+        objectDetector = await ObjectDetector.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+            delegate: "GPU"
+          },
+          scoreThreshold: 0.25,
+          runningMode: "VIDEO"
+        });
+
+        aiPipelineReady = true;
+        aiModelStatusText.textContent = "3-Layer Cabin Vision Active";
+        aiModelStatusText.classList.add("text-purple-400");
+      } catch (err) {
+        console.warn("GPU Vision Pipeline initialization failed, trying CPU fallback:", err);
+        try {
+          const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+          );
+          poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate: "CPU" },
+            runningMode: "VIDEO", numPoses: 2
+          });
+          faceDetector = await FaceDetector.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite", delegate: "CPU" },
+            runningMode: "VIDEO"
+          });
+          objectDetector = await ObjectDetector.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite", delegate: "CPU" },
+            scoreThreshold: 0.25, runningMode: "VIDEO"
+          });
+          aiPipelineReady = true;
+          aiModelStatusText.textContent = "Cabin Vision Active (CPU)";
+          aiModelStatusText.classList.add("text-purple-400");
+        } catch (e2) {
+          console.error("Fatal AI Vision Pipeline Error:", e2);
+          aiModelStatusText.textContent = "AI Offline (Synthetic Simulator Active)";
+          syntheticAiMode = true;
+        }
+      }
+    }
+
+    initCabinVisionPipeline();
+
+    // Custom Model Loader Handler
+    customModelFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const buffer = await file.arrayBuffer();
+        const blob = new Blob([buffer]);
+        const modelUrl = URL.createObjectURL(blob);
+        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+        objectDetector = await ObjectDetector.createFromOptions(vision, {
+          baseOptions: { modelAssetBuffer: new Uint8Array(buffer) },
+          scoreThreshold: 0.3,
+          runningMode: "VIDEO"
+        });
+        alert(`Loaded custom model: ${file.name}`);
+      } catch (err) {
+        alert("Failed to parse custom .tflite model file: " + err.message);
+      }
     });
-    const n=p[0],e1=p[2],e2=p[5];
-    if(n&&e1&&e2&&n.visibility>.6&&e1.visibility>.5&&e2.visibility>.5){
-      facing=true;const hr=Math.hypot((e1.x-e2.x)*w,(e1.y-e2.y)*h)*2,hx=n.x*w,hy=n.y*h;
-      if(!faces.some(f=>{const b=f.boundingBox;return Math.hypot(b.originX+b.width/2-hx,b.originY+b.height/2-hy)<hr*1.5}))missing=true;
+
+    // -------------------------------------------------------------
+    // 3. SENSORS & GPS TELEMETRY
+    // -------------------------------------------------------------
+    function initSensorsAndGPS() {
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(state => {
+          if (state === 'granted') attachAccelerometerListener();
+        }).catch(console.error);
+      } else {
+        attachAccelerometerListener();
+      }
+
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            gpsCoordsText.textContent = `GPS: ${currentCoords.lat.toFixed(4)}°, ${currentCoords.lng.toFixed(4)}°`;
+          },
+          () => { gpsCoordsText.textContent = "GPS: No Lock"; },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 }
+        );
+      }
     }
-  }
-  S.prev=cur;S.pt=ts;
-  S.ev=S.ev.filter(t=>ts-t<1500);
-  if(cfg.struggle&&S.ev.length>=4){S.ev=[];raise("struggle")}
-  if(facing&&missing){S.maskT=S.maskT||ts;if(ts-S.maskT>2500){S.maskT=0;raise("mask")}}else S.maskT=0;
-  const hits=[];
-  for(const [d,custom] of [[obj,false],[obj2,true]]){
-    if(!d)continue;
-    for(const det of d.detectForVideo(video,ts).detections||[]){
-      const cat=det.categories[0],l=cat.categoryName.toLowerCase();
-      const ok=custom?CUSTOM.test(l)&&cat.score>=.5:cat.score>=(WEAPONS[l]??9);
-      if(!ok)continue;hits.push(l);const b=det.boundingBox;
-      ctx.strokeStyle="#ef4444";ctx.lineWidth=3;const x=bx(b.originX,b.width,w);ctx.strokeRect(x,b.originY,b.width,b.height);
-      ctx.fillStyle="#ef4444";ctx.fillRect(x,Math.max(0,b.originY-18),150,18);ctx.fillStyle="#fff";ctx.font="bold 11px monospace";ctx.fillText(`${l.toUpperCase()} ${Math.round(cat.score*100)}%`,x+4,Math.max(12,b.originY-5));
+
+    function attachAccelerometerListener() {
+      window.addEventListener('devicemotion', (evt) => {
+        if (!evt.accelerationIncludingGravity) return;
+        const ax = evt.accelerationIncludingGravity.x || 0;
+        const ay = evt.accelerationIncludingGravity.y || 0;
+        const az = evt.accelerationIncludingGravity.z || 0;
+
+        const totalG = Math.sqrt(ax * ax + ay * ay + az * az) / 9.80665;
+        currentGForce = totalG;
+        if (totalG > maxGForce) maxGForce = totalG;
+
+        gForceValue.textContent = currentGForce.toFixed(2);
+        if (currentGForce >= 1.8 && dashcamRunning && !isIncidentLocking) {
+          triggerIncidentLock(`CABIN IMPACT (${totalG.toFixed(2)}G)`, "IMPACT");
+        }
+      });
     }
-  }
-  hits.forEach(l=>S.wh.push({t:ts,l}));S.wh=S.wh.filter(e=>ts-e.t<1500);
-  const top=S.wh.find(e=>S.wh.filter(f=>f.l===e.l).length>=4);
-  if(top){S.wh=[];raise("weapon",top.l.toUpperCase())}
-}
-function zoneHUD(w,h){
-  const x=cfg.zone*w;ctx.save();ctx.strokeStyle="rgba(168,85,247,.5)";ctx.setLineDash([6,6]);ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();ctx.setLineDash([]);ctx.font="12px monospace";ctx.fillStyle="rgba(196,150,255,.9)";
-  const L=cfg.side==="left";ctx.textAlign=L?"right":"left";ctx.fillText("DRIVER ZONE",L?x-8:x+8,20);ctx.textAlign=L?"left":"right";ctx.fillText("PASSENGER",L?x+8:x-8,20);ctx.restore();
-}
-function skeleton(p,w,h){
-  ctx.save();ctx.strokeStyle="#a855f7";ctx.lineWidth=2;ctx.fillStyle="#06b6d4";
-  [[11,12],[11,13],[13,15],[12,14],[14,16]].forEach(([i,j])=>{if(p[i]&&p[j]){ctx.beginPath();ctx.moveTo(bx(p[i].x*w,0,w),p[i].y*h);ctx.lineTo(bx(p[j].x*w,0,w),p[j].y*h);ctx.stroke()}});
-  [0,2,5,11,12,13,14,15,16].forEach(i=>{if(p[i]){ctx.beginPath();ctx.arc(bx(p[i].x*w,0,w),p[i].y*h,3,0,7);ctx.fill()}});ctx.restore();
-}
 
-/* ---------- simulator (no camera) ---------- */
-function simFrame(w,h){
-  const s=S.sim;if(!s||performance.now()>s.until){S.sim=null;return}
-  ctx.strokeStyle="#f59e0b";ctx.lineWidth=3;
-  if(s.k==="weapon"){ctx.strokeStyle="#ef4444";ctx.strokeRect(w*.52,h*.4,120,160);ctx.fillStyle="#ef4444";ctx.font="bold 12px monospace";ctx.fillText("KNIFE (SIM)",w*.52,h*.4-6);raise("weapon","KNIFE (SIM)")}
-  if(s.k==="mask"){ctx.strokeRect(w*.6,h*.25,180,220);raise("mask")}
-  if(s.k==="struggle"){ctx.fillStyle="rgba(239,68,68,.4)";ctx.beginPath();ctx.arc(w*.55,h*.5,60,0,7);ctx.fill();raise("struggle")}
-}
-function demoLoop(){
-  if(!S.run||!S.demo)return;requestAnimationFrame(demoLoop);
-  const t=performance.now()/1000;dctx.fillStyle="#0b0f19";dctx.fillRect(0,0,1280,720);
-  dctx.strokeStyle="#1e293b";dctx.lineWidth=4;dctx.strokeRect(100,100,480,320);dctx.strokeRect(700,100,480,320);
-  dctx.fillStyle="#334155";dctx.font="20px monospace";dctx.fillText("CYCLONE AI SIMULATOR",470,60);
-  dctx.beginPath();dctx.arc(640+Math.sin(t)*200,600,12,0,7);dctx.fill();
-}
+    // -------------------------------------------------------------
+    // 4. CAMERA SETUP & RECORDING ENGINE
+    // -------------------------------------------------------------
+    async function startDashcamSystem(useSyntheticCamera = false) {
+      initSensorsAndGPS();
+      playBeep(880, 'sine', 0.15, 2);
 
-/* ---------- lifecycle ---------- */
-async function start(demoMode){
-  if(S.run)return;
-  if(!cfg.consent)return $("gateMsg").textContent="Please confirm the recording notice first.";
-  sensors();S.demo=demoMode;
-  try{
-    if(demoMode){S.mir=false;video.hidden=true;demo.hidden=false}
-    else{
-      if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera needs HTTPS and a supported browser.");
-      await cam();
+      if (useSyntheticCamera) {
+        syntheticAiMode = true;
+        demoCanvas.classList.remove('hidden');
+        video.classList.add('hidden');
+        startSyntheticCabinGenerator();
+      } else {
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: facingMode,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+          video.srcObject = mediaStream;
+          video.play();
+          demoCanvas.classList.add('hidden');
+          video.classList.remove('hidden');
+
+          // Apply CSS mirror mode only for front user camera
+          if (facingMode === 'user') {
+            video.classList.add('mirror-mode');
+            hudCanvas.classList.add('mirror-mode');
+          } else {
+            video.classList.remove('mirror-mode');
+            hudCanvas.classList.remove('mirror-mode');
+          }
+        } catch (camErr) {
+          alert("Camera access denied or unavailable. Switching to Synthetic Cabin Simulator.");
+          syntheticAiMode = true;
+          demoCanvas.classList.remove('hidden');
+          video.classList.add('hidden');
+          startSyntheticCabinGenerator();
+        }
+      }
+
+      dashcamRunning = true;
+      permissionOverlay.classList.add('hidden');
+      updateStatusBadge('REC');
+
+      startRecordingSegment();
+      recStartTime = Date.now();
+      recTimerInterval = setInterval(updateRecTimer, 1000);
+
+      requestAnimationFrame(visionProcessFrame);
     }
-  }catch(e){
-    const m=e.name==="NotAllowedError"?"Camera permission was denied. Allow it in browser settings and retry.":e.name==="NotFoundError"?"No camera found.":e.message;
-    $("gateMsg").textContent=m;toast(m,6000);return;
-  }
-  S.run=true;S.t0=Date.now();S.prev=[];S.ev=[];S.wh=[];S.segs=[];S.peak=0;
-  $("gate").hidden=true;$("toggle").textContent="STOP MONITOR";$("toggle").className="btn stop";$("recbox").hidden=false;setBadge("MONITORING","on");
-  $("simBox").hidden=!demoMode;
-  if(!demoMode&&!aiP)aiP=loadAI();
-  wake();segStart();requestAnimationFrame(frame);if(demoMode)demoLoop();
-  navigator.storage&&navigator.storage.persist&&navigator.storage.persist();
-}
-function stop(){
-  if(!S.run)return;S.run=false;
-  if(S.pend)S.fin=true;
-  stopSeg();
-  if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}
-  if(S.wake){S.wake.release();S.wake=null}
-  ctx.clearRect(0,0,hud.width,hud.height);
-  $("toggle").textContent="START MONITOR";$("toggle").className="btn go";$("recbox").hidden=true;setBadge("STANDBY");$("fps").textContent="0";$("threat").hidden=true;
-}
-addEventListener("beforeunload",e=>{if(S.run){e.preventDefault();e.returnValue=""}});
-setInterval(()=>{
-  const d=new Date(),el=Math.floor((Date.now()-S.t0)/1000);
-  $("clk").textContent=d.toISOString().replace("T"," ").slice(0,19)+"Z";$("dimclk").textContent=d.toLocaleTimeString();
-  if(S.run){$("rect").textContent=String(Math.floor(el/60)).padStart(2,"0")+":"+String(el%60).padStart(2,"0");$("fps").textContent=S.n;$("dimst").textContent="RECORDING";S.n=0}
-},1000);
 
-/* ---------- gallery ---------- */
-async function render(){
-  let all=[];try{all=await getAll()}catch(e){}
-  $("cnt").textContent=all.length;$("galLbl").textContent=all.length+" incident"+(all.length===1?"":"s");
-  const box=$("list");box.replaceChildren();
-  if(!all.length){const p=document.createElement("p");p.className="mut";p.textContent="No evidence saved yet.";box.append(p);return}
-  for(const it of all){
-    const d=document.createElement("div");d.className="inc";d.dataset.id=it.id;
-    const img=new Image();img.src=it.snap;img.alt="Snapshot";
-    const i=document.createElement("div");i.className="i mono";
-    const r=document.createElement("div");r.className="r";r.textContent=it.reason;
-    const m=document.createElement("div");m.className="mut";
-    m.textContent=`${new Date(it.ts).toLocaleString()} | peak ${it.g} G | ${it.coords?it.coords.lat+", "+it.coords.lng:"no location"} | ${(it.size/1048576).toFixed(1)} MB`;
-    i.append(r,m);
-    const mk=(t,a)=>{const b=document.createElement("button");b.className="btn sm";b.textContent=t;b.dataset.a=a;return b};
-    d.append(img,i,mk("Play","play"),mk("Save","dl"),mk("Delete","del"));box.append(d);
-  }
-}
-let urls=[];
-$("list").addEventListener("click",async e=>{
-  const a=e.target.dataset.a,id=e.target.closest(".inc")?.dataset.id;if(!a||!id)return;
-  const it=(await getAll()).find(x=>x.id===id);if(!it)return;
-  if(a==="del"){if(confirm("Delete this evidence permanently?")){await tx("readwrite",s=>s.delete(id));render()}}
-  if(a==="dl")it.parts.forEach((b,i)=>dl(b,`${it.id}-part${i+1}.${it.mime.includes("mp4")?"mp4":"webm"}`));
-  if(a==="play"){
-    urls=it.parts.map(b=>URL.createObjectURL(b));let k=0;const p=$("player");
-    p.onended=()=>{if(++k<urls.length){p.src=urls[k];p.play()}};p.src=urls[0];
-    $("playT").textContent=`${it.id} (${it.parts.length} part${it.parts.length>1?"s":""}, plays in sequence)`;
-    $("playI").textContent=`${new Date(it.ts).toLocaleString()} | ${it.reason}`;$("playD").showModal();p.play().catch(()=>{});
-  }
-});
-$("playX").onclick=()=>{$("playD").close()};
-$("playD").addEventListener("close",()=>{$("player").pause();$("player").removeAttribute("src");urls.forEach(URL.revokeObjectURL);urls=[]});
-$("expBtn").onclick=async()=>{const all=(await getAll()).map(({snap,parts,...m})=>({...m,parts:parts.length}));dl(new Blob([JSON.stringify(all,null,2)],{type:"application/json"}),"cyclone-ai-log.json")};
-document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
+    function stopDashcamSystem() {
+      dashcamRunning = false;
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      clearInterval(recTimerInterval);
+      recordingBox.classList.add('hidden');
+      updateStatusBadge('STANDBY');
 
-/* ---------- settings + bindings ---------- */
-const fill=()=>{$("side").value=cfg.side;$("zone").value=cfg.zone;$("speed").value=cfg.speed;$("struggle").checked=cfg.struggle;$("silent").value=cfg.silent?"1":"0";$("hook").value=cfg.hook;lbl()};
-const lbl=()=>{$("zoneV").textContent=Math.round($("zone").value*100)+"%";$("speedV").textContent=$("speed").value};
-$("zone").oninput=$("speed").oninput=lbl;
-$("setBtn").onclick=()=>{fill();$("setD").showModal()};
-$("saveBtn").onclick=()=>{
-  const h=$("hook").value.trim();if(h&&!h.startsWith("https://"))return toast("Webhook must start with https://");
-  Object.assign(cfg,{side:$("side").value,zone:+$("zone").value,speed:+$("speed").value,struggle:$("struggle").checked,silent:$("silent").value==="1",hook:h});save();$("setD").close();toast("Settings saved");
-};
-document.querySelectorAll("[data-sim]").forEach(b=>b.onclick=()=>{S.sim={k:b.dataset.sim,until:performance.now()+1500};S.cool={};$("setD").close()});
-$("consent").checked=cfg.consent;
-$("consent").onchange=e=>{cfg.consent=e.target.checked;save();$("gateMsg").textContent=""};
-$("startBtn").onclick=()=>start(false);$("demoBtn").onclick=()=>start(true);
-$("toggle").onclick=()=>S.run?stop():(cfg.consent?start(S.demo):($("gate").hidden=false));
-$("panic").onclick=()=>S.run?raise("panic"):toast("Start the monitor first");
-$("flip").onclick=async()=>{S.facing=S.facing==="user"?"environment":"user";if(S.run&&!S.demo){try{await cam();stopSeg()}catch(e){toast("Could not switch camera")}}};
-$("dimBtn").onclick=()=>$("dim").hidden=false;$("dim").onclick=()=>$("dim").hidden=true;
-$("galBtn").onclick=()=>{render();$("galD").showModal()};
-render();
-if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
-</script>
+      dashcamBtnLabel.textContent = "START CABIN MONITOR";
+      toggleDashcamBtn.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+      toggleDashcamBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+    }
+
+    function startRecordingSegment() {
+      if (!dashcamRunning) return;
+      segmentChunks = [];
+
+      let captureStream = syntheticAiMode ? demoCanvas.captureStream(30) : video.srcObject;
+      try {
+        mediaRecorder = new MediaRecorder(captureStream, { mimeType: 'video/webm;codecs=vp8' });
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(captureStream);
+      }
+
+      mediaRecorder.ondataavailable = (evt) => {
+        if (evt.data && evt.data.size > 0) segmentChunks.push(evt.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(segmentChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+        if (blob.size > 0) {
+          rollingBuffer.push({ blob: blob, timestamp: new Date() });
+          if (rollingBuffer.length > 3) rollingBuffer.shift();
+        }
+        if (dashcamRunning && !isIncidentLocking) startRecordingSegment();
+      };
+
+      mediaRecorder.start(1000);
+      setTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state === 'recording' && !isIncidentLocking) {
+          mediaRecorder.stop();
+        }
+      }, segmentDurationSec * 1000);
+    }
+
+    // -------------------------------------------------------------
+    // 5. INCIDENT EVIDENCE LOCKING ENGINE
+    // -------------------------------------------------------------
+    async function triggerIncidentLock(reason = "MANUAL LOCK", alertCategory = "THREAT") {
+      if (isIncidentLocking) return;
+      isIncidentLocking = true;
+
+      playBeep(1200, 'sawtooth', 0.25, 3);
+      updateStatusBadge('LOCKED');
+
+      lockBanner.classList.remove('hidden');
+      setTimeout(() => lockBanner.classList.add('hidden'), 3500);
+
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+      await new Promise(r => setTimeout(r, 400));
+
+      // Generate Evidence Snapshot
+      const snapCanvas = document.createElement('canvas');
+      const targetW = video.videoWidth || demoCanvas.width || 1280;
+      const targetH = video.videoHeight || demoCanvas.height || 720;
+      snapCanvas.width = targetW;
+      snapCanvas.height = targetH;
+      const snapCtx = snapCanvas.getContext('2d');
+
+      if (syntheticAiMode) snapCtx.drawImage(demoCanvas, 0, 0, targetW, targetH);
+      else snapCtx.drawImage(video, 0, 0, targetW, targetH);
+      snapCtx.drawImage(hudCanvas, 0, 0, targetW, targetH);
+      const snapshotUrl = snapCanvas.toDataURL('image/jpeg', 0.85);
+
+      const allBlobs = rollingBuffer.map(item => item.blob);
+      const combinedBlob = new Blob(allBlobs, { type: mediaRecorder?.mimeType || 'video/webm' });
+      const videoUrl = URL.createObjectURL(combinedBlob);
+
+      const incidentData = {
+        id: 'EV-' + Date.now().toString().slice(-6),
+        timestamp: new Date().toLocaleString(),
+        reason: reason,
+        gForce: maxGForce.toFixed(2) + ' G',
+        coords: currentCoords ? `${currentCoords.lat.toFixed(4)}°, ${currentCoords.lng.toFixed(4)}°` : 'N/A',
+        snapshotUrl: snapshotUrl,
+        videoUrl: videoUrl,
+        blobSize: (combinedBlob.size / (1024 * 1024)).toFixed(2) + ' MB'
+      };
+
+      lockedIncidents.unshift(incidentData);
+      updateGalleryUI();
+
+      setTimeout(() => {
+        maxGForce = currentGForce;
+        isIncidentLocking = false;
+        if (dashcamRunning) {
+          updateStatusBadge('REC');
+          startRecordingSegment();
+        }
+      }, 1500);
+    }
+
+    // -------------------------------------------------------------
+    // 6. REAL-TIME MULTI-MODEL CABIN VISION LOOP
+    // -------------------------------------------------------------
+    function visionProcessFrame(now) {
+      if (!dashcamRunning) return;
+
+      frameCount++;
+      if (now - lastFrameTime >= 1000) {
+        currentFps = Math.round((frameCount * 1000) / (now - lastFrameTime));
+        fpsValue.textContent = currentFps;
+        frameCount = 0;
+        lastFrameTime = now;
+      }
+
+      const w = video.videoWidth || demoCanvas.width || hudCanvas.clientWidth;
+      const h = video.videoHeight || demoCanvas.height || hudCanvas.clientHeight;
+      if (hudCanvas.width !== w || hudCanvas.height !== h) {
+        hudCanvas.width = w;
+        hudCanvas.height = h;
+      }
+
+      hudCtx.clearRect(0, 0, w, h);
+
+      // Draw Driver Zone Divider
+      drawDriverZoneHUD(hudCtx, w, h);
+
+      let struggleDetected = false;
+      let balaclavaDetected = false;
+      let bladeDetected = false;
+
+      if (syntheticAiMode) {
+        const simRes = processSyntheticCabinFrame(hudCtx, w, h);
+        struggleDetected = simRes.struggle;
+        balaclavaDetected = simRes.balaclava;
+        bladeDetected = simRes.blade;
+      } else if (aiPipelineReady && video.readyState >= 2) {
+        // --- 1. POSE LANDMARKER ANALYSIS (Struggle / Tackle) ---
+        if (poseLandmarker) {
+          try {
+            const poseRes = poseLandmarker.detectForVideo(video, now);
+            if (poseRes && poseRes.landmarks) {
+              const dT = (now - prevLandmarkTime) / 1000;
+              poseRes.landmarks.forEach((pose, idx) => {
+                drawPoseSkeleton(hudCtx, pose, w, h);
+
+                // Analyze Wrist Landmarks (15: left wrist, 16: right wrist)
+                const wrists = [pose[15], pose[16]].filter(Boolean);
+                wrists.forEach(wrist => {
+                  const xNorm = wrist.x;
+                  // Intrusion into Driver Zone (Passenger hand crossing driver boundary)
+                  if (xNorm < driverZoneXBoundary) {
+                    hudCtx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+                    hudCtx.beginPath();
+                    hudCtx.arc(wrist.x * w, wrist.y * h, 25, 0, Math.PI * 2);
+                    hudCtx.fill();
+                  }
+
+                  // High Velocity Sudden Tackle Movement
+                  if (prevLandmarks && prevLandmarks[idx] && dT > 0) {
+                    const prevWrist = prevLandmarks[idx][15];
+                    if (prevWrist) {
+                      const dist = Math.hypot(wrist.x - prevWrist.x, wrist.y - prevWrist.y);
+                      const velocity = dist / dT;
+                      if (velocity > velocityThreshold && xNorm < driverZoneXBoundary) {
+                        struggleDetected = true;
+                      }
+                    }
+                  }
+                });
+              });
+              prevLandmarks = poseRes.landmarks;
+              prevLandmarkTime = now;
+            }
+          } catch (e) { console.warn("Pose Error:", e); }
+        }
+
+        // --- 2. FACE DETECTOR vs PERSON CHECK (Balaclava Detection) ---
+        let detectedFacesCount = 0;
+        if (faceDetector) {
+          try {
+            const faceRes = faceDetector.detectForVideo(video, now);
+            if (faceRes && faceRes.detections) {
+              detectedFacesCount = faceRes.detections.length;
+              faceRes.detections.forEach(face => {
+                const box = face.boundingBox;
+                hudCtx.strokeStyle = '#10b981';
+                hudCtx.lineWidth = 2;
+                hudCtx.strokeRect(box.originX, box.originY, box.width, box.height);
+              });
+            }
+          } catch (e) { console.warn("Face Error:", e); }
+        }
+
+        // --- 3. OBJECT DETECTOR (Weapons & Person Mask Check) ---
+        if (objectDetector) {
+          try {
+            const objRes = objectDetector.detectForVideo(video, now);
+            if (objRes && objRes.detections) {
+              let personCount = 0;
+              objRes.detections.forEach(det => {
+                const label = det.categories[0].categoryName.toLowerCase();
+                const score = det.categories[0].score;
+                const b = det.boundingBox;
+
+                if (label === 'person') {
+                  personCount++;
+                  hudCtx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+                  hudCtx.lineWidth = 2;
+                  hudCtx.strokeRect(b.originX, b.originY, b.width, b.height);
+                } else if (['knife', 'scissors', 'baseball bat', 'gun', 'weapon'].includes(label)) {
+                  bladeDetected = true;
+                  drawThreatBoundingBox(hudCtx, label.toUpperCase(), score, b.originX, b.originY, b.width, b.height, '#ef4444');
+                }
+              });
+
+              // Heuristic: If 1+ person is detected inside cabin but 0 faces found for consecutive frames -> Balaclava
+              if (personCount > 0 && detectedFacesCount === 0) {
+                consecutiveMaskedFrames++;
+                if (consecutiveMaskedFrames >= MASK_FRAME_THRESHOLD) {
+                  balaclavaDetected = true;
+                }
+              } else {
+                consecutiveMaskedFrames = 0;
+              }
+            }
+          } catch (e) { console.warn("Object Error:", e); }
+        }
+      }
+
+      // Handle Threat Trigger Banners & Auto-Locking
+      if (struggleDetected) {
+        showThreatBanner("CABIN STRUGGLE DETECTED", "RAPID ZONE INTRUSION / TACKLE", "ph-warning-octagon");
+        threatSummaryText.textContent = "THREAT: Physical Struggle";
+        if (!isIncidentLocking) triggerIncidentLock("CABIN STRUGGLE DETECTED", "STRUGGLE");
+      } else if (balaclavaDetected) {
+        showThreatBanner("MASKED / BALACLAVA SUSPECT", "OCCLUDED FACE INSIDE CABIN", "ph-mask-happy");
+        threatSummaryText.textContent = "THREAT: Masked Suspect";
+        if (!isIncidentLocking) triggerIncidentLock("MASKED SUSPECT DETECTED", "MASK");
+      } else if (bladeDetected) {
+        showThreatBanner("BLADE / WEAPON DETECTED", "WEAPON BRANDISHED INSIDE CABIN", "ph-sword");
+        threatSummaryText.textContent = "THREAT: Weapon Brandished";
+        if (!isIncidentLocking) triggerIncidentLock("WEAPON DETECTED", "WEAPON");
+      } else {
+        threatBanner.classList.add('hidden');
+        threatSummaryText.textContent = "Cabin Secure";
+      }
+
+      hudTimestamp.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      requestAnimationFrame(visionProcessFrame);
+    }
+
+    // -------------------------------------------------------------
+    // 7. HUD RENDERING HELPERS
+    // -------------------------------------------------------------
+    function drawDriverZoneHUD(ctx, w, h) {
+      const splitX = w * driverZoneXBoundary;
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+
+      ctx.beginPath();
+      ctx.moveTo(splitX, 0);
+      ctx.lineTo(splitX, h);
+      ctx.stroke();
+
+      ctx.font = '10px monospace';
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.7)';
+      ctx.fillText("DRIVER ZONE", splitX - 80, 20);
+      ctx.fillText("PASSENGER ZONE", splitX + 10, 20);
+      ctx.restore();
+    }
+
+    function drawPoseSkeleton(ctx, landmarks, w, h) {
+      ctx.save();
+      ctx.fillStyle = '#06b6d4';
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2;
+
+      // Connections between shoulders, elbows, wrists
+      const connections = [[11,12], [11,13], [13,15], [12,14], [14,16]];
+      connections.forEach(([i, j]) => {
+        if (landmarks[i] && landmarks[j]) {
+          ctx.beginPath();
+          ctx.moveTo(landmarks[i].x * w, landmarks[i].y * h);
+          ctx.lineTo(landmarks[j].x * w, landmarks[j].y * h);
+          ctx.stroke();
+        }
+      });
+
+      landmarks.forEach(lm => {
+        ctx.beginPath();
+        ctx.arc(lm.x * w, lm.y * h, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    function drawThreatBoundingBox(ctx, label, score, x, y, w, h, color) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, w, h);
+
+      ctx.fillStyle = color;
+      ctx.fillRect(x, Math.max(0, y - 20), 140, 18);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(`${label} ${(score * 100).toFixed(0)}%`, x + 4, Math.max(12, y - 6));
+      ctx.restore();
+    }
+
+    function showThreatBanner(title, subtitle, iconClass) {
+      threatTitle.textContent = title;
+      threatSubtitle.textContent = subtitle;
+      threatIcon.className = `ph-bold ${iconClass} text-3xl text-yellow-300`;
+      threatBanner.classList.remove('hidden');
+    }
+
+    // -------------------------------------------------------------
+    // 8. SYNTHETIC CABIN SIMULATOR
+    // -------------------------------------------------------------
+    let simModeActiveThreat = null; // 'struggle', 'mask', 'blade'
+    let simTime = 0;
+
+    function startSyntheticCabinGenerator() {
+      demoCanvas.width = 1280;
+      demoCanvas.height = 720;
+
+      function renderCabin() {
+        if (!dashcamRunning || !syntheticAiMode) return;
+        simTime += 0.05;
+
+        // Dark interior car background
+        demoCtx.fillStyle = '#0b0f19';
+        demoCtx.fillRect(0, 0, 1280, 720);
+
+        // Windows & headrests outlines
+        demoCtx.strokeStyle = '#1e293b';
+        demoCtx.lineWidth = 4;
+        demoCtx.strokeRect(100, 100, 480, 320); // Driver Window
+        demoCtx.strokeRect(700, 100, 480, 320); // Passenger Window
+
+        requestAnimationFrame(renderCabin);
+      }
+      renderCabin();
+    }
+
+    function processSyntheticCabinFrame(ctx, w, h) {
+      let res = { struggle: false, balaclava: false, blade: false };
+
+      if (simModeActiveThreat === 'struggle') {
+        res.struggle = true;
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.beginPath();
+        ctx.arc(w * 0.45, h * 0.5, 60, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (simModeActiveThreat === 'mask') {
+        res.balaclava = true;
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(w * 0.6, h * 0.25, 180, 220);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText("MASKED SUSPECT", w * 0.6, h * 0.23);
+      } else if (simModeActiveThreat === 'blade') {
+        res.blade = true;
+        drawThreatBoundingBox(ctx, "KNIFE / BLADE", 0.94, w * 0.52, h * 0.4, 120, 160, '#ef4444');
+      }
+
+      return res;
+    }
+
+    // -------------------------------------------------------------
+    // 9. UI EVENT BINDINGS
+    // -------------------------------------------------------------
+    startPermissionBtn.addEventListener('click', () => startDashcamSystem(false));
+    enableDemoModeBtn.addEventListener('click', () => startDashcamSystem(true));
+
+    toggleDashcamBtn.addEventListener('click', () => {
+      if (dashcamRunning) {
+        stopDashcamSystem();
+      } else {
+        startDashcamSystem(syntheticAiMode);
+        dashcamBtnLabel.textContent = "STOP MONITOR";
+        toggleDashcamBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+        toggleDashcamBtn.classList.add('bg-rose-600', 'hover:bg-rose-500');
+      }
+    });
+
+    manualLockBtn.addEventListener('click', () => {
+      if (!dashcamRunning) return;
+      triggerIncidentLock("MANUAL PANIC TRIGGER", "PANIC");
+    });
+
+    // Flip Camera Front/Rear
+    flipCameraBtn.addEventListener('click', () => {
+      facingMode = (facingMode === 'user') ? 'environment' : 'user';
+      if (dashcamRunning && !syntheticAiMode) {
+        stopDashcamSystem();
+        startDashcamSystem(false);
+      }
+    });
+
+    // Dim Stealth Screen Toggle
+    stealthScreenBtn.addEventListener('click', () => {
+      stealthOverlay.classList.remove('hidden');
+    });
+
+    stealthOverlay.addEventListener('click', () => {
+      stealthOverlay.classList.add('hidden');
+    });
+
+    setInterval(() => {
+      stealthClock.textContent = new Date().toLocaleTimeString();
+    }, 1000);
+
+    // Silent Mode Toggle
+    toggleSilentModeBtn.addEventListener('click', () => {
+      isSilentAlarm = !isSilentAlarm;
+      if (isSilentAlarm) {
+        silentModeIcon.className = "ph-bold ph-speaker-slash text-amber-400";
+        silentModeLabel.textContent = "SILENT ALARM";
+        silentModeLabel.className = "text-amber-400 font-bold";
+      } else {
+        silentModeIcon.className = "ph-bold ph-speaker-high text-red-400";
+        silentModeLabel.textContent = "AUDIBLE ALARM";
+        silentModeLabel.className = "text-red-400 font-bold";
+      }
+    });
+
+    // Modals
+    openGalleryBtn.addEventListener('click', () => galleryModal.classList.remove('hidden'));
+    closeGalleryBtn.addEventListener('click', () => galleryModal.classList.add('hidden'));
+
+    closePlayerBtn.addEventListener('click', () => {
+      videoPlayerModal.classList.add('hidden');
+      incidentVideoPlayer.pause();
+    });
+
+    openSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+    driverZoneSlider.addEventListener('input', (e) => {
+      driverZoneXBoundary = parseFloat(e.target.value);
+      driverZoneValLabel.textContent = `${Math.round(driverZoneXBoundary * 100)}% Screen`;
+    });
+
+    velocitySlider.addEventListener('input', (e) => {
+      velocityThreshold = parseFloat(e.target.value);
+      velocityValLabel.textContent = velocityThreshold < 0.1 ? 'Ultra-High' : (velocityThreshold < 0.18 ? 'High' : 'Normal');
+    });
+
+    // Synthetic Simulator Triggers
+    document.getElementById('simStruggleBtn').addEventListener('click', () => {
+      simModeActiveThreat = 'struggle';
+      setTimeout(() => { simModeActiveThreat = null; }, 4000);
+    });
+
+    document.getElementById('simMaskBtn').addEventListener('click', () => {
+      simModeActiveThreat = 'mask';
+      setTimeout(() => { simModeActiveThreat = null; }, 4000);
+    });
+
+    document.getElementById('simBladeBtn').addEventListener('click', () => {
+      simModeActiveThreat = 'blade';
+      setTimeout(() => { simModeActiveThreat = null; }, 4000);
+    });
+
+    saveSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+    function updateStatusBadge(state) {
+      if (state === 'REC') {
+        statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-purple-950 text-purple-400 border border-purple-700 flex items-center gap-1.5';
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span><span>CABIN ACTIVE</span>`;
+        recordingBox.classList.remove('hidden');
+      } else if (state === 'LOCKED') {
+        statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-red-950 text-red-400 border border-red-700 flex items-center gap-1.5 animate-bounce';
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span><span>EVIDENCE LOCKED</span>`;
+      } else {
+        statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5';
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500"></span><span>STANDBY</span>`;
+        recordingBox.classList.add('hidden');
+      }
+    }
+
+    function updateRecTimer() {
+      const elapsed = Math.floor((Date.now() - recStartTime) / 1000);
+      const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const s = String(elapsed % 60).padStart(2, '0');
+      recTimerText.textContent = `${m}:${s}`;
+    }
+
+    function updateGalleryUI() {
+      galleryContainer.innerHTML = '';
+      if (lockedIncidents.length === 0) {
+        galleryContainer.appendChild(emptyGalleryState);
+        galleryBadge.classList.add('hidden');
+        galleryCountLabel.textContent = "0 Clips Saved";
+        return;
+      }
+
+      galleryBadge.classList.remove('hidden');
+      galleryBadge.textContent = lockedIncidents.length;
+      galleryCountLabel.textContent = `${lockedIncidents.length} Clip${lockedIncidents.length === 1 ? '' : 's'} Protected`;
+
+      lockedIncidents.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row gap-3 items-center justify-between hover:border-slate-700 transition';
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+            <img src="${item.snapshotUrl}" class="w-24 h-16 object-cover rounded-lg border border-slate-800 shrink-0 bg-slate-900" />
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-950 text-red-400 border border-red-800">${item.reason}</span>
+                <span class="text-[11px] font-mono text-slate-400">${item.timestamp}</span>
+              </div>
+              <p class="text-xs font-mono text-slate-300 mt-1">
+                Peak Impact: <span class="text-emerald-400 font-bold">${item.gForce}</span> | Location: <span class="text-purple-400 font-bold">${item.coords}</span>
+              </p>
+              <p class="text-[10px] font-mono text-slate-500">${item.blobSize}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-slate-900 pt-2 sm:pt-0">
+            <button onclick="playIncidentVideo(${idx})" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs font-semibold transition flex items-center gap-1">
+              <i class="ph-bold ph-play"></i> Play
+            </button>
+            <a href="${item.videoUrl}" download="${item.id}.webm" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+              <i class="ph-bold ph-download-simple text-base"></i>
+            </a>
+            <button onclick="deleteIncidentClip(${idx})" class="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-rose-400 transition">
+              <i class="ph-bold ph-trash text-base"></i>
+            </button>
+          </div>
+        `;
+        galleryContainer.appendChild(card);
+      });
+    }
+
+    window.playIncidentVideo = (idx) => {
+      const item = lockedIncidents[idx];
+      if (!item) return;
+      incidentVideoPlayer.src = item.videoUrl;
+      videoPlayerTitle.textContent = `${item.id} - ${item.reason}`;
+      videoTelemetryDetails.innerHTML = `
+        <span>Time: ${item.timestamp}</span>
+        <span>Impact: ${item.gForce}</span>
+        <span>Location: ${item.coords}</span>
+      `;
+      videoPlayerModal.classList.remove('hidden');
+    };
+
+    window.deleteIncidentClip = (idx) => {
+      lockedIncidents.splice(idx, 1);
+      updateGalleryUI();
+    };
+
+  </script>
 </body>
 </html>
