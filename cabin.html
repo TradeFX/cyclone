@@ -118,7 +118,7 @@
           <h1 class="font-orbitron font-extrabold text-sm tracking-wider text-slate-100 flex items-center gap-1.5">
             NEXUS <span class="text-purple-400 text-xs font-semibold px-1.5 py-0.5 rounded bg-purple-950 border border-purple-800">CABIN AI DEFENSE</span>
           </h1>
-          <p class="text-[10px] text-slate-400 font-mono" id="aiModelStatusText">Loading Hybrid Vision (MediaPipe + ONNX / TF.js)...</p>
+          <p class="text-[10px] text-slate-400 font-mono" id="aiModelStatusText">Initializing Vision Engines...</p>
         </div>
       </div>
 
@@ -195,11 +195,11 @@
         <span id="gpsCoordsText">GPS: Acquiring signal...</span>
       </div>
       <div class="text-[10px] text-slate-400 flex items-center gap-2">
-        <span id="hudTimestamp">2026-11-24 00:00:00</span>
+        <span id="hudTimestamp">2026-11-25 00:00:00</span>
         <span>|</span>
         <span id="threatSummaryText">Cabin Normal</span>
         <span>|</span>
-        <span id="tfEngineModeBadge" class="text-cyan-400">TF.js: Default</span>
+        <span id="tfEngineModeBadge" class="text-cyan-400">Engine: Ready</span>
       </div>
     </div>
 
@@ -377,7 +377,7 @@
           <label class="block text-cyan-400 font-bold">Load ONNX (.onnx) or TF.js Weapon Model</label>
           <p class="text-[10px] text-slate-400 leading-relaxed">Select <code class="text-slate-200">best.onnx</code> directly, or select <code class="text-slate-200">model.json</code> + <code class="text-slate-200">.bin</code> shard files together.</p>
           
-          <input id="customTfjsFilesInput" type="file" multiple accept=".onnx,.json,.bin" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-950 file:text-cyan-300 border border-slate-800 rounded-xl p-1 bg-slate-950">
+          <input id="customTfjsFilesInput" type="file" multiple accept=".onnx,.json,.bin,application/octet-stream" class="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-950 file:text-cyan-300 border border-slate-800 rounded-xl p-1 bg-slate-950">
 
           <div class="flex gap-1.5">
             <input id="customTfjsUrlInput" type="text" placeholder="./best.onnx or https://.../model.json" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500">
@@ -461,7 +461,7 @@
     // Throttle object inference slightly to keep phone smooth & cool
     let lastObjDetectTime = 0;
     let cachedObjDetections = [];
-    const OBJ_DETECT_INTERVAL_MS = 120;
+    const OBJ_DETECT_INTERVAL_MS = 140;
 
     // Telemetry & Sensors
     let currentGForce = 1.0;
@@ -551,6 +551,16 @@
     const loadTfjsUrlBtn = document.getElementById('loadTfjsUrlBtn');
     const customClassLabelsInput = document.getElementById('customClassLabelsInput');
 
+    // Helper: prevent mobile GPU/WASM hangs with a strict timeout
+    function withTimeout(promise, ms, label = "Operation") {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms))
+      ]);
+    }
+
+    const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
     // -------------------------------------------------------------
     // 1. SOUND & AUDIO ALERT UTILITY
     // -------------------------------------------------------------
@@ -578,57 +588,103 @@
     }
 
     // -------------------------------------------------------------
-    // 2. HYBRID VISION INITIALIZATION (MEDIAPIPE + ONNX / TENSORFLOW.JS)
+    // 2. NON-BLOCKING HYBRID VISION INIT (MEDIAPIPE + ONNX / TF.JS)
     // -------------------------------------------------------------
     async function initCabinVisionPipeline() {
+      // Configure ONNX Runtime Web immediately so Settings -> Load best.onnx works right away
+      if (typeof ort !== 'undefined' && ort.env?.wasm) {
+        ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/";
+        ort.env.wasm.numThreads = 1;
+      }
+
+      // 1. Initialize TF.js backend safely (avoid mobile WebGL stall)
       try {
-        aiModelStatusText.textContent = "Initializing TensorFlow.js WebGL, ONNX Runtime & MediaPipe...";
-        await tf.ready();
-        try {
-          await tf.setBackend('webgl');
-        } catch (e) {
-          console.warn("WebGL backend unavailable, falling back to CPU:", e);
+        aiModelStatusText.textContent = "Step 1/3: Initializing TensorFlow.js...";
+        await withTimeout(tf.ready(), 5000, "TF.js ready");
+        if (!isMobileDevice) {
+          try {
+            await withTimeout(tf.setBackend('webgl'), 4000, "WebGL backend");
+          } catch (e) {
+            await tf.setBackend('cpu');
+          }
+        } else {
+          // On mobile browsers, WebGL shader compilation for MediaPipe + TF.js simultaneously often hangs;
+          // keep TF.js lightweight or CPU-safe while ONNX WASM handles custom weapon models cleanly.
+          try {
+            await withTimeout(tf.setBackend('webgl'), 3000, "Mobile WebGL");
+          } catch (e) {
+            await tf.setBackend('cpu');
+          }
         }
+      } catch (e) {
+        console.warn("TF.js init warning:", e);
+      }
 
-        if (typeof ort !== 'undefined' && ort.env?.wasm) {
-          ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/";
-          ort.env.wasm.numThreads = 1;
-        }
-
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      // 2. Initialize MediaPipe Tasks Vision (use CPU delegate on mobile to prevent GPU context deadlock)
+      const mpDelegate = isMobileDevice ? "CPU" : "GPU";
+      try {
+        aiModelStatusText.textContent = `Step 2/3: Loading MediaPipe (${mpDelegate})...`;
+        const vision = await withTimeout(
+          FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"),
+          12000,
+          "MediaPipe WASM"
         );
 
-        // 1. MediaPipe Pose Landmarker (Struggle detection)
-        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-            delegate: "GPU"
-          },
-          runningMode: "VIDEO",
-          numPoses: 2
-        });
+        poseLandmarker = await withTimeout(
+          PoseLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+              delegate: mpDelegate
+            },
+            runningMode: "VIDEO",
+            numPoses: 2
+          }),
+          12000,
+          "PoseLandmarker"
+        );
 
-        // 2. MediaPipe Face Detector (Balaclava / face occlusion check)
-        faceDetector = await FaceDetector.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
-            delegate: "GPU"
-          },
-          runningMode: "VIDEO"
-        });
-
-        // 3. TensorFlow.js Object Detector (Default COCO-SSD + Custom ONNX / TF.js YOLO slots)
-        cocoModel = await cocoSsd.load({ base: 'mobilenet_v2' });
+        faceDetector = await withTimeout(
+          FaceDetector.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+              delegate: mpDelegate
+            },
+            runningMode: "VIDEO"
+          }),
+          10000,
+          "FaceDetector"
+        );
 
         aiPipelineReady = true;
-        aiModelStatusText.textContent = `Hybrid Vision Active (${tf.getBackend().toUpperCase()})`;
+        aiModelStatusText.textContent = `MediaPipe + ONNX Ready (${mpDelegate})`;
         aiModelStatusText.classList.add("text-purple-400");
-        tfEngineModeBadge.textContent = "TF.js: COCO-SSD v2";
-      } catch (err) {
-        console.error("Vision Pipeline Error:", err);
-        aiModelStatusText.textContent = "AI Offline (Synthetic Simulator Active)";
-        syntheticAiMode = true;
+      } catch (mpErr) {
+        console.warn("MediaPipe init partial/skipped:", mpErr);
+        // Even if MediaPipe fails on an older phone, ONNX Runtime Web still works standalone!
+        aiPipelineReady = true;
+        aiModelStatusText.textContent = "ONNX Weapon Engine Ready (Lite Mode)";
+        aiModelStatusText.classList.add("text-cyan-400");
+      }
+
+      // 3. Load COCO-SSD fallback in the background (non-blocking, with timeout so mobile never freezes)
+      try {
+        if (!customOnnxSession && !customYoloModel) {
+          const loadedCoco = await withTimeout(
+            cocoSsd.load({ base: isMobileDevice ? 'lite_mobilenet_v2' : 'mobilenet_v2' }),
+            15000,
+            "COCO-SSD"
+          );
+          cocoModel = loadedCoco;
+          if (!customOnnxSession && !customYoloModel) {
+            tfEngineModeBadge.textContent = isMobileDevice ? "TF.js: Lite COCO" : "TF.js: COCO-SSD v2";
+            aiModelStatusText.textContent = `Hybrid Vision Active (${mpDelegate} + ONNX)`;
+          }
+        }
+      } catch (cocoErr) {
+        console.warn("COCO-SSD background load skipped (ONNX still active):", cocoErr);
+        if (!customOnnxSession && !customYoloModel) {
+          tfEngineModeBadge.textContent = "ONNX Ready (Load best.onnx)";
+        }
       }
     }
 
@@ -721,4 +777,1012 @@
           const x1 = (cx - bw / 2) * normFactor * scaleX;
           const y1 = (cy - bh / 2) * normFactor * scaleY;
           const x2 = (cx + bw / 2) * normFactor * scaleX;
-          const y2 = (cy + bh / 2) * normFactor
+          const y2 = (cy + bh / 2) * normFactor * scaleY;
+
+          candidateBoxes.push([y1, x1, y2, x2]);
+          candidateScores.push(maxScore);
+          candidateClasses.push(bestClass);
+        }
+      }
+
+      if (candidateBoxes.length > 0) {
+        const boxesTensor = tf.tensor2d(candidateBoxes);
+        const scoresTensor = tf.tensor1d(candidateScores);
+        const nmsIndicesTensor = await tf.image.nonMaxSuppressionAsync(
+          boxesTensor,
+          scoresTensor,
+          20,
+          0.45,
+          minWeaponConfidence
+        );
+        const selectedIndices = await nmsIndicesTensor.data();
+        tf.dispose([boxesTensor, scoresTensor, nmsIndicesTensor]);
+
+        for (let k = 0; k < selectedIndices.length; k++) {
+          const idx = selectedIndices[k];
+          const [y1, x1, y2, x2] = candidateBoxes[idx];
+          const clsIdx = candidateClasses[idx];
+          const label = customClassLabels[clsIdx] || `class_${clsIdx}`;
+          detections.push({
+            label: label,
+            score: candidateScores[idx],
+            bbox: [x1, y1, Math.max(1, x2 - x1), Math.max(1, y2 - y1)]
+          });
+        }
+      }
+
+      return detections;
+    }
+
+    async function decodeYoloTensorOutput(outTensor, frameW, frameH) {
+      const data = await outTensor.data();
+      return decodeRawYoloArray(data, outTensor.shape, frameW, frameH);
+    }
+
+    async function loadOnnxModelFromSource(source, fileLabel = "best.onnx") {
+      if (typeof ort === 'undefined' || !ort.InferenceSession) {
+        throw new Error("ONNX Runtime Web (onnxruntime-web) did not load.");
+      }
+
+      ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/";
+      ort.env.wasm.numThreads = 1;
+
+      parseClassLabels();
+      aiModelStatusText.textContent = `Loading ${fileLabel} into ONNX Runtime...`;
+
+      let session;
+      if (source instanceof ArrayBuffer || source instanceof Uint8Array) {
+        const bytes = source instanceof Uint8Array ? source : new Uint8Array(source);
+        session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
+      } else {
+        session = await ort.InferenceSession.create(source, { executionProviders: ['wasm'] });
+      }
+
+      const inputName = session.inputNames?.[0] || "images";
+      let inferredSize = 640;
+      const metaDims = session.inputMetadata?.[inputName]?.dimensions;
+      if (Array.isArray(metaDims) && metaDims.length === 4) {
+        const d = typeof metaDims[2] === 'number' && metaDims[2] > 0 ? metaDims[2] : metaDims[3];
+        if (typeof d === 'number' && d > 0) inferredSize = d;
+      }
+
+      // Warmup run
+      const dummyArr = new Float32Array(1 * 3 * inferredSize * inferredSize);
+      const dummyTensor = new ort.Tensor('float32', dummyArr, [1, 3, inferredSize, inferredSize]);
+      const warmRes = await session.run({ [inputName]: dummyTensor });
+      const firstOutKey = session.outputNames?.[0] || Object.keys(warmRes)[0];
+      if (warmRes[firstOutKey]?.dispose) warmRes[firstOutKey].dispose();
+
+      customOnnxSession = session;
+      customOnnxInputName = inputName;
+      yoloInputSize = inferredSize;
+      customYoloModel = null;
+      cachedObjDetections = [];
+      aiPipelineReady = true;
+      tfEngineModeBadge.textContent = `ONNX: ${fileLabel} (${yoloInputSize}px)`;
+      tfEngineModeBadge.className = "text-emerald-400 font-bold";
+      aiModelStatusText.textContent = `ONNX Weapon Model Active (${fileLabel})`;
+      aiModelStatusText.classList.add("text-emerald-400");
+    }
+
+    // Load local .onnx file OR TF.js model.json + .bin files
+    customTfjsFilesInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      const onnxFile = files.find(f => f.name.toLowerCase().endsWith('.onnx'));
+      if (onnxFile) {
+        try {
+          const buf = await onnxFile.arrayBuffer();
+          await loadOnnxModelFromSource(buf, onnxFile.name);
+          alert(`Loaded ONNX model (${onnxFile.name}) at ${yoloInputSize}x${yoloInputSize}.`);
+        } catch (err) {
+          console.error("Failed to load ONNX file:", err);
+          alert("Failed to load .onnx model: " + err.message);
+        }
+        return;
+      }
+
+      const jsonFile = files.find(f => f.name.endsWith('.json'));
+      const binFiles = files.filter(f => f.name.endsWith('.bin'));
+
+      if (!jsonFile) {
+        alert("Please select a .onnx file (like best.onnx) or model.json + .bin files.");
+        return;
+      }
+
+      try {
+        parseClassLabels();
+        aiModelStatusText.textContent = "Loading custom TF.js weapon model...";
+        const loadedModel = await tf.loadGraphModel(tf.io.browserFiles([jsonFile, ...binFiles]));
+        detectInputSizeFromModel(loadedModel);
+
+        const dummy = tf.zeros([1, yoloInputSize, yoloInputSize, 3]);
+        const warmOut = loadedModel.execute(dummy);
+        tf.dispose([dummy, warmOut]);
+
+        customYoloModel = loadedModel;
+        customOnnxSession = null;
+        cachedObjDetections = [];
+        aiPipelineReady = true;
+        tfEngineModeBadge.textContent = `TF.js: Custom YOLO (${yoloInputSize}px)`;
+        tfEngineModeBadge.className = "text-emerald-400 font-bold";
+        aiModelStatusText.textContent = `Custom TF.js Weapon Model Loaded (${customClassLabels.length} classes)`;
+        alert(`Loaded custom TF.js model (${jsonFile.name}) at ${yoloInputSize}x${yoloInputSize}.`);
+      } catch (err) {
+        console.error("Failed to load custom TF.js files:", err);
+        alert("Failed to load TF.js model: " + err.message);
+      }
+    });
+
+    // Load hosted .onnx or model.json via URL
+    loadTfjsUrlBtn.addEventListener('click', async () => {
+      const url = customTfjsUrlInput.value.trim();
+      if (!url) return;
+      try {
+        if (url.toLowerCase().includes('.onnx')) {
+          const cleanName = url.split('/').pop()?.split('?')[0] || 'best.onnx';
+          await loadOnnxModelFromSource(url, cleanName);
+          alert(`Loaded ONNX model from URL (${cleanName}).`);
+          return;
+        }
+
+        parseClassLabels();
+        aiModelStatusText.textContent = "Fetching remote TF.js weapon model...";
+        const loadedModel = await tf.loadGraphModel(url);
+        detectInputSizeFromModel(loadedModel);
+
+        const dummy = tf.zeros([1, yoloInputSize, yoloInputSize, 3]);
+        const warmOut = loadedModel.execute(dummy);
+        tf.dispose([dummy, warmOut]);
+
+        customYoloModel = loadedModel;
+        customOnnxSession = null;
+        cachedObjDetections = [];
+        aiPipelineReady = true;
+        tfEngineModeBadge.textContent = `TF.js: Custom YOLO (${yoloInputSize}px)`;
+        tfEngineModeBadge.className = "text-emerald-400 font-bold";
+        aiModelStatusText.textContent = `Remote TF.js Weapon Model Active`;
+        alert(`Loaded remote TF.js model successfully.`);
+      } catch (err) {
+        console.error("Remote model load error:", err);
+        alert("Failed to load model URL: " + err.message);
+      }
+    });
+
+    // Lightweight offscreen canvas for fast NCHW preprocessing on mobile (no TF.js WebGL shader stall)
+    const onnxPrepCanvas = document.createElement('canvas');
+    const onnxPrepCtx = onnxPrepCanvas.getContext('2d', { willReadFrequently: true });
+
+    // Run ONNX Runtime Web inference (NCHW [1, 3, H, W] normalized 0..1) + NMS
+    async function runCustomOnnxInference(videoEl, frameW, frameH) {
+      if (!customOnnxSession) return [];
+
+      const sz = yoloInputSize;
+      if (onnxPrepCanvas.width !== sz || onnxPrepCanvas.height !== sz) {
+        onnxPrepCanvas.width = sz;
+        onnxPrepCanvas.height = sz;
+      }
+
+      onnxPrepCtx.drawImage(videoEl, 0, 0, sz, sz);
+      const imgData = onnxPrepCtx.getImageData(0, 0, sz, sz).data;
+      const planeSize = sz * sz;
+      const floatData = new Float32Array(3 * planeSize);
+
+      for (let i = 0; i < planeSize; i++) {
+        const px = i * 4;
+        floatData[i] = imgData[px] / 255.0;
+        floatData[planeSize + i] = imgData[px + 1] / 255.0;
+        floatData[2 * planeSize + i] = imgData[px + 2] / 255.0;
+      }
+
+      try {
+        const inputTensor = new ort.Tensor('float32', floatData, [1, 3, sz, sz]);
+        const outputs = await customOnnxSession.run({ [customOnnxInputName]: inputTensor });
+        const outKey = customOnnxSession.outputNames?.[0] || Object.keys(outputs)[0];
+        const outTensor = outputs[outKey];
+        if (!outTensor) return [];
+        const dets = await decodeRawYoloArray(outTensor.data, outTensor.dims, frameW, frameH);
+        if (outTensor.dispose) outTensor.dispose();
+        return dets;
+      } catch (err) {
+        console.warn("ONNX inference error:", err);
+        return [];
+      }
+    }
+
+    // Run YOLOv8 / YOLOv11 TF.js GraphModel Inference + NMS
+    async function runCustomYoloInference(videoEl, frameW, frameH) {
+      if (!customYoloModel) return [];
+
+      const inputTensor = tf.tidy(() => {
+        return tf.browser.fromPixels(videoEl)
+          .resizeBilinear([yoloInputSize, yoloInputSize])
+          .div(255.0)
+          .expandDims(0);
+      });
+
+      let rawOutput = null;
+      try {
+        rawOutput = customYoloModel.execute(inputTensor);
+        const outTensor = Array.isArray(rawOutput) ? rawOutput[0] : rawOutput;
+        return await decodeYoloTensorOutput(outTensor, frameW, frameH);
+      } catch (err) {
+        console.warn("Custom YOLO inference error:", err);
+        return [];
+      } finally {
+        tf.dispose(inputTensor);
+        if (rawOutput) tf.dispose(rawOutput);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 3. SENSORS & GPS TELEMETRY
+    // -------------------------------------------------------------
+    function initSensorsAndGPS() {
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(state => {
+          if (state === 'granted') attachAccelerometerListener();
+        }).catch(console.error);
+      } else {
+        attachAccelerometerListener();
+      }
+
+      startRealGPS();
+    }
+
+    function startRealGPS() {
+      if ('geolocation' in navigator && !simulatedGpsActive) {
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            if (simulatedGpsActive) return;
+            currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            gpsCoordsText.textContent = `GPS: ${currentCoords.lat.toFixed(4)}°, ${currentCoords.lng.toFixed(4)}°`;
+          },
+          (err) => {
+            if (simulatedGpsActive) return;
+            if (err.code === err.PERMISSION_DENIED) {
+              gpsCoordsText.textContent = "GPS: Blocked by Embed (Tap to Simulate)";
+            } else {
+              gpsCoordsText.textContent = "GPS: No Lock (Tap to Simulate)";
+            }
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 1000 }
+        );
+      } else if (!simulatedGpsActive) {
+        gpsCoordsText.textContent = "GPS: Unavailable (Tap to Simulate)";
+      }
+    }
+
+    document.getElementById('gpsToggleContainer').addEventListener('click', () => {
+      simulatedGpsActive = !simulatedGpsActive;
+      if (simulatedGpsActive) {
+        let simLat = -26.2041;
+        let simLng = 28.0473;
+        gpsCoordsText.textContent = `GPS (Sim): ${simLat.toFixed(4)}°, ${simLng.toFixed(4)}°`;
+        currentCoords = { lat: simLat, lng: simLng };
+        clearInterval(simulatedGpsInterval);
+        simulatedGpsInterval = setInterval(() => {
+          simLat += (Math.random() - 0.5) * 0.0004;
+          simLng += (Math.random() - 0.5) * 0.0004;
+          currentCoords = { lat: simLat, lng: simLng };
+          gpsCoordsText.textContent = `GPS (Sim): ${simLat.toFixed(4)}°, ${simLng.toFixed(4)}°`;
+        }, 3000);
+      } else {
+        clearInterval(simulatedGpsInterval);
+        startRealGPS();
+      }
+    });
+
+    function attachAccelerometerListener() {
+      window.addEventListener('devicemotion', (evt) => {
+        if (!evt.accelerationIncludingGravity) return;
+        const ax = evt.accelerationIncludingGravity.x || 0;
+        const ay = evt.accelerationIncludingGravity.y || 0;
+        const az = evt.accelerationIncludingGravity.z || 0;
+
+        const totalG = Math.sqrt(ax * ax + ay * ay + az * az) / 9.80665;
+        currentGForce = totalG;
+        if (totalG > maxGForce) maxGForce = totalG;
+
+        gForceValue.textContent = currentGForce.toFixed(2);
+        if (currentGForce >= 1.8 && dashcamRunning && !isIncidentLocking) {
+          triggerIncidentLock(`CABIN IMPACT (${totalG.toFixed(2)}G)`, "IMPACT");
+        }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 4. CAMERA SETUP & RECORDING ENGINE
+    // -------------------------------------------------------------
+    async function startDashcamSystem(useSyntheticCamera = false) {
+      initSensorsAndGPS();
+      playBeep(880, 'sine', 0.15, 2);
+
+      if (useSyntheticCamera) {
+        syntheticAiMode = true;
+        demoCanvas.classList.remove('hidden');
+        video.classList.add('hidden');
+        startSyntheticCabinGenerator();
+      } else {
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: facingMode,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+          video.srcObject = mediaStream;
+          await video.play();
+          demoCanvas.classList.add('hidden');
+          video.classList.remove('hidden');
+
+          if (facingMode === 'user') {
+            video.classList.add('mirror-mode');
+            hudCanvas.classList.add('mirror-mode');
+          } else {
+            video.classList.remove('mirror-mode');
+            hudCanvas.classList.remove('mirror-mode');
+          }
+        } catch (camErr) {
+          alert("Camera access denied or unavailable. Switching to Synthetic Cabin Simulator.");
+          syntheticAiMode = true;
+          demoCanvas.classList.remove('hidden');
+          video.classList.add('hidden');
+          startSyntheticCabinGenerator();
+        }
+      }
+
+      dashcamRunning = true;
+      permissionOverlay.classList.add('hidden');
+      updateStatusBadge('REC');
+
+      dashcamBtnLabel.textContent = "STOP MONITOR";
+      toggleDashcamBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+      toggleDashcamBtn.classList.add('bg-rose-600', 'hover:bg-rose-500');
+
+      startRecordingSegment();
+      recStartTime = Date.now();
+      recTimerInterval = setInterval(updateRecTimer, 1000);
+
+      requestAnimationFrame(visionProcessFrame);
+    }
+
+    function stopDashcamSystem() {
+      dashcamRunning = false;
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(t => t.stop());
+        mediaStream = null;
+      }
+      clearInterval(recTimerInterval);
+      recordingBox.classList.add('hidden');
+      updateStatusBadge('STANDBY');
+
+      dashcamBtnLabel.textContent = "START CABIN MONITOR";
+      toggleDashcamBtn.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+      toggleDashcamBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+    }
+
+    function startRecordingSegment() {
+      if (!dashcamRunning) return;
+      segmentChunks = [];
+
+      let captureStream = syntheticAiMode ? demoCanvas.captureStream(30) : video.srcObject;
+      try {
+        mediaRecorder = new MediaRecorder(captureStream, { mimeType: 'video/webm;codecs=vp8' });
+      } catch (e) {
+        try {
+          mediaRecorder = new MediaRecorder(captureStream);
+        } catch (err2) {
+          console.warn("MediaRecorder unavailable on this browser:", err2);
+          return;
+        }
+      }
+
+      mediaRecorder.ondataavailable = (evt) => {
+        if (evt.data && evt.data.size > 0) segmentChunks.push(evt.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(segmentChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+        if (blob.size > 0) {
+          rollingBuffer.push({ blob: blob, timestamp: new Date() });
+          if (rollingBuffer.length > 3) rollingBuffer.shift();
+        }
+        if (dashcamRunning && !isIncidentLocking) startRecordingSegment();
+      };
+
+      mediaRecorder.start(1000);
+      setTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state === 'recording' && !isIncidentLocking) {
+          mediaRecorder.stop();
+        }
+      }, segmentDurationSec * 1000);
+    }
+
+    // -------------------------------------------------------------
+    // 5. INCIDENT EVIDENCE LOCKING ENGINE
+    // -------------------------------------------------------------
+    async function triggerIncidentLock(reason = "MANUAL LOCK", alertCategory = "THREAT") {
+      if (isIncidentLocking) return;
+      isIncidentLocking = true;
+
+      playBeep(1200, 'sawtooth', 0.25, 3);
+      updateStatusBadge('LOCKED');
+
+      lockBanner.classList.remove('hidden');
+      setTimeout(() => lockBanner.classList.add('hidden'), 3500);
+
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+      await new Promise(r => setTimeout(r, 400));
+
+      const snapCanvas = document.createElement('canvas');
+      const targetW = video.videoWidth || demoCanvas.width || 1280;
+      const targetH = video.videoHeight || demoCanvas.height || 720;
+      snapCanvas.width = targetW;
+      snapCanvas.height = targetH;
+      const snapCtx = snapCanvas.getContext('2d');
+
+      if (syntheticAiMode) snapCtx.drawImage(demoCanvas, 0, 0, targetW, targetH);
+      else snapCtx.drawImage(video, 0, 0, targetW, targetH);
+      snapCtx.drawImage(hudCanvas, 0, 0, targetW, targetH);
+      const snapshotUrl = snapCanvas.toDataURL('image/jpeg', 0.85);
+
+      const allBlobs = rollingBuffer.map(item => item.blob);
+      const combinedBlob = new Blob(allBlobs, { type: mediaRecorder?.mimeType || 'video/webm' });
+      const videoUrl = URL.createObjectURL(combinedBlob);
+
+      const incidentData = {
+        id: 'EV-' + Date.now().toString().slice(-6),
+        timestamp: new Date().toLocaleString(),
+        reason: reason,
+        gForce: maxGForce.toFixed(2) + ' G',
+        coords: currentCoords ? `${currentCoords.lat.toFixed(4)}°, ${currentCoords.lng.toFixed(4)}°` : 'N/A',
+        snapshotUrl: snapshotUrl,
+        videoUrl: videoUrl,
+        blobSize: (combinedBlob.size / (1024 * 1024)).toFixed(2) + ' MB'
+      };
+
+      lockedIncidents.unshift(incidentData);
+      updateGalleryUI();
+
+      setTimeout(() => {
+        maxGForce = currentGForce;
+        isIncidentLocking = false;
+        if (dashcamRunning) {
+          updateStatusBadge('REC');
+          startRecordingSegment();
+        }
+      }, 1500);
+    }
+
+    // -------------------------------------------------------------
+    // 6. REAL-TIME HYBRID VISION LOOP (MEDIAPIPE + ONNX / TF.JS)
+    // -------------------------------------------------------------
+    const WEAPON_KEYWORDS = [
+      'knife', 'scissors', 'baseball bat', 'gun', 'handgun', 'pistol',
+      'rifle', 'weapon', 'blade', 'machete', 'sword', 'firearm'
+    ];
+    const MASK_KEYWORDS = ['balaclava', 'mask', 'ski mask'];
+
+    async function visionProcessFrame(now) {
+      if (!dashcamRunning) return;
+
+      try {
+        frameCount++;
+        if (now - lastFrameTime >= 1000) {
+          currentFps = Math.round((frameCount * 1000) / (now - lastFrameTime));
+          fpsValue.textContent = currentFps;
+          frameCount = 0;
+          lastFrameTime = now;
+        }
+
+        const w = video.videoWidth || demoCanvas.width || hudCanvas.clientWidth;
+        const h = video.videoHeight || demoCanvas.height || hudCanvas.clientHeight;
+        if (hudCanvas.width !== w || hudCanvas.height !== h) {
+          hudCanvas.width = w;
+          hudCanvas.height = h;
+        }
+
+        hudCtx.clearRect(0, 0, w, h);
+        drawDriverZoneHUD(hudCtx, w, h);
+
+        let struggleDetected = false;
+        let rawStruggleDetected = false;
+        let balaclavaDetected = false;
+        let bladeDetected = false;
+        let detectedWeaponLabel = "WEAPON";
+
+        if (syntheticAiMode) {
+          const simRes = processSyntheticCabinFrame(hudCtx, w, h);
+          rawStruggleDetected = simRes.struggle;
+          balaclavaDetected = simRes.balaclava;
+          bladeDetected = simRes.blade;
+        } else if (video.readyState >= 2) {
+          // --- 1. POSE LANDMARKER ANALYSIS (Struggle / Tackle) ---
+          if (poseLandmarker) {
+            try {
+              const poseRes = poseLandmarker.detectForVideo(video, now);
+              if (poseRes && poseRes.landmarks) {
+                const dT = (now - prevLandmarkTime) / 1000;
+                poseRes.landmarks.forEach((pose, idx) => {
+                  drawPoseSkeleton(hudCtx, pose, w, h);
+
+                  const wrists = [pose[15], pose[16]].filter(Boolean);
+                  wrists.forEach(wrist => {
+                    const xNorm = wrist.x;
+                    if (xNorm < driverZoneXBoundary) {
+                      hudCtx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+                      hudCtx.beginPath();
+                      hudCtx.arc(wrist.x * w, wrist.y * h, 25, 0, Math.PI * 2);
+                      hudCtx.fill();
+                    }
+
+                    if (prevLandmarks && prevLandmarks[idx] && dT > 0) {
+                      const prevWrist = prevLandmarks[idx][15];
+                      if (prevWrist) {
+                        const dist = Math.hypot(wrist.x - prevWrist.x, wrist.y - prevWrist.y);
+                        const velocity = dist / dT;
+                        if (velocity > velocityThreshold && xNorm < driverZoneXBoundary) {
+                          rawStruggleDetected = true;
+                        }
+                      }
+                    }
+                  });
+                });
+                prevLandmarks = poseRes.landmarks;
+                prevLandmarkTime = now;
+              }
+            } catch (e) { console.warn("Pose Error:", e); }
+          }
+
+          // --- 2. FACE DETECTOR (Balaclava occlusion check) ---
+          let detectedFacesCount = 0;
+          if (faceDetector) {
+            try {
+              const faceRes = faceDetector.detectForVideo(video, now);
+              if (faceRes && faceRes.detections) {
+                detectedFacesCount = faceRes.detections.length;
+                faceRes.detections.forEach(face => {
+                  const box = face.boundingBox;
+                  hudCtx.strokeStyle = '#10b981';
+                  hudCtx.lineWidth = 2;
+                  hudCtx.strokeRect(box.originX, box.originY, box.width, box.height);
+                });
+              }
+            } catch (e) { console.warn("Face Error:", e); }
+          }
+
+          // --- 3. OBJECT DETECTOR (Custom ONNX -> Custom TF.js YOLO -> COCO-SSD) ---
+          if (now - lastObjDetectTime >= OBJ_DETECT_INTERVAL_MS) {
+            lastObjDetectTime = now;
+            try {
+              if (customOnnxSession) {
+                cachedObjDetections = await runCustomOnnxInference(video, w, h);
+              } else if (customYoloModel) {
+                cachedObjDetections = await runCustomYoloInference(video, w, h);
+              } else if (cocoModel) {
+                const preds = await cocoModel.detect(video, 15, minWeaponConfidence);
+                cachedObjDetections = preds.map(p => ({
+                  label: p.class.toLowerCase(),
+                  score: p.score,
+                  bbox: p.bbox
+                }));
+              }
+            } catch (e) {
+              console.warn("Object Detection Error:", e);
+            }
+          }
+
+          let personCount = 0;
+          cachedObjDetections.forEach(det => {
+            const label = det.label.toLowerCase();
+            const score = det.score;
+            const [bx, by, bw, bh] = det.bbox;
+
+            const isWeapon = WEAPON_KEYWORDS.some(k => label.includes(k));
+            const isMask = MASK_KEYWORDS.some(k => label.includes(k));
+
+            if (label === 'person') {
+              personCount++;
+              hudCtx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+              hudCtx.lineWidth = 2;
+              hudCtx.strokeRect(bx, by, bw, bh);
+            } else if (isWeapon) {
+              bladeDetected = true;
+              detectedWeaponLabel = label.toUpperCase();
+              drawThreatBoundingBox(hudCtx, detectedWeaponLabel, score, bx, by, bw, bh, '#ef4444');
+            } else if (isMask) {
+              balaclavaDetected = true;
+              drawThreatBoundingBox(hudCtx, label.toUpperCase(), score, bx, by, bw, bh, '#f59e0b');
+            } else if (showDebugBoxes) {
+              drawThreatBoundingBox(hudCtx, label.toUpperCase(), score, bx, by, bw, bh, '#38bdf8');
+            }
+          });
+
+          if (personCount > 0 && detectedFacesCount === 0) {
+            consecutiveMaskedFrames++;
+            if (consecutiveMaskedFrames >= MASK_FRAME_THRESHOLD) {
+              balaclavaDetected = true;
+            }
+          } else {
+            consecutiveMaskedFrames = 0;
+          }
+        }
+
+        if (struggleDetectionEnabled && rawStruggleDetected) {
+          strugglePersistFrames++;
+          if (strugglePersistFrames >= 8) {
+            strugglePersistFrames = 0;
+            struggleDetected = true;
+          }
+        } else {
+          strugglePersistFrames = 0;
+        }
+
+        if (struggleDetected) {
+          threatHoldUntil = now + 5000;
+          showThreatBanner("CABIN STRUGGLE DETECTED", "RAPID ZONE INTRUSION / TACKLE", "ph-warning-octagon");
+          threatSummaryText.textContent = "THREAT: Physical Struggle";
+          if (!isIncidentLocking) triggerIncidentLock("CABIN STRUGGLE DETECTED", "STRUGGLE");
+        } else if (balaclavaDetected) {
+          threatHoldUntil = now + 5000;
+          showThreatBanner("MASKED / BALACLAVA SUSPECT", "OCCLUDED FACE INSIDE CABIN", "ph-mask-happy");
+          threatSummaryText.textContent = "THREAT: Masked Suspect";
+          if (!isIncidentLocking) triggerIncidentLock("MASKED SUSPECT DETECTED", "MASK");
+        } else if (bladeDetected) {
+          threatHoldUntil = now + 5000;
+          showThreatBanner(`${detectedWeaponLabel} DETECTED`, "WEAPON BRANDISHED INSIDE CABIN", "ph-sword");
+          threatSummaryText.textContent = `THREAT: ${detectedWeaponLabel} Brandished`;
+          if (!isIncidentLocking) triggerIncidentLock(`${detectedWeaponLabel} DETECTED`, "WEAPON");
+        } else if (now >= threatHoldUntil) {
+          simModeActiveThreat = null;
+          threatBanner.classList.add('hidden');
+          threatSummaryText.textContent = "Cabin Secure";
+        }
+      } catch (err) {
+        console.error("Frame Processing Loop Error:", err);
+      }
+
+      hudTimestamp.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      requestAnimationFrame(visionProcessFrame);
+    }
+
+    // -------------------------------------------------------------
+    // 7. HUD RENDERING HELPERS
+    // -------------------------------------------------------------
+    function drawDriverZoneHUD(ctx, w, h) {
+      const splitX = w * driverZoneXBoundary;
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+
+      ctx.beginPath();
+      ctx.moveTo(splitX, 0);
+      ctx.lineTo(splitX, h);
+      ctx.stroke();
+
+      ctx.font = '10px monospace';
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.7)';
+      ctx.fillText("DRIVER ZONE", splitX - 80, 20);
+      ctx.fillText("PASSENGER ZONE", splitX + 10, 20);
+      ctx.restore();
+    }
+
+    function drawPoseSkeleton(ctx, landmarks, w, h) {
+      ctx.save();
+      ctx.fillStyle = '#06b6d4';
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 2;
+
+      const connections = [[11,12], [11,13], [13,15], [12,14], [14,16]];
+      connections.forEach(([i, j]) => {
+        if (landmarks[i] && landmarks[j]) {
+          ctx.beginPath();
+          ctx.moveTo(landmarks[i].x * w, landmarks[i].y * h);
+          ctx.lineTo(landmarks[j].x * w, landmarks[j].y * h);
+          ctx.stroke();
+        }
+      });
+
+      landmarks.forEach(lm => {
+        ctx.beginPath();
+        ctx.arc(lm.x * w, lm.y * h, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    function drawThreatBoundingBox(ctx, label, score, x, y, w, h, color) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, w, h);
+
+      ctx.fillStyle = color;
+      ctx.fillRect(x, Math.max(0, y - 20), 150, 18);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText(`${label} ${(score * 100).toFixed(0)}%`, x + 4, Math.max(12, y - 6));
+      ctx.restore();
+    }
+
+    function showThreatBanner(title, subtitle, iconClass) {
+      threatTitle.textContent = title;
+      threatSubtitle.textContent = subtitle;
+      threatIcon.className = `ph-bold ${iconClass} text-3xl text-yellow-300`;
+      threatBanner.classList.remove('hidden');
+    }
+
+    // -------------------------------------------------------------
+    // 8. SYNTHETIC CABIN SIMULATOR
+    // -------------------------------------------------------------
+    let simModeActiveThreat = null;
+    let simTime = 0;
+
+    function startSyntheticCabinGenerator() {
+      demoCanvas.width = 1280;
+      demoCanvas.height = 720;
+
+      function renderCabin() {
+        if (!dashcamRunning || !syntheticAiMode) return;
+        simTime += 0.05;
+
+        demoCtx.fillStyle = '#0b0f19';
+        demoCtx.fillRect(0, 0, 1280, 720);
+
+        demoCtx.strokeStyle = '#1e293b';
+        demoCtx.lineWidth = 4;
+        demoCtx.strokeRect(100, 100, 480, 320);
+        demoCtx.strokeRect(700, 100, 480, 320);
+
+        requestAnimationFrame(renderCabin);
+      }
+      renderCabin();
+    }
+
+    function processSyntheticCabinFrame(ctx, w, h) {
+      let res = { struggle: false, balaclava: false, blade: false };
+
+      if (simModeActiveThreat === 'struggle') {
+        res.struggle = true;
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.beginPath();
+        ctx.arc(w * 0.45, h * 0.5, 60, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (simModeActiveThreat === 'mask') {
+        res.balaclava = true;
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(w * 0.6, h * 0.25, 180, 220);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText("MASKED SUSPECT", w * 0.6, h * 0.23);
+      } else if (simModeActiveThreat === 'blade') {
+        res.blade = true;
+        drawThreatBoundingBox(ctx, "KNIFE / BLADE", 0.94, w * 0.52, h * 0.4, 120, 160, '#ef4444');
+      }
+
+      return res;
+    }
+
+    // -------------------------------------------------------------
+    // 9. UI EVENT BINDINGS
+    // -------------------------------------------------------------
+    startPermissionBtn.addEventListener('click', () => startDashcamSystem(false));
+    enableDemoModeBtn.addEventListener('click', () => startDashcamSystem(true));
+
+    toggleDashcamBtn.addEventListener('click', () => {
+      if (dashcamRunning) {
+        stopDashcamSystem();
+      } else {
+        startDashcamSystem(syntheticAiMode);
+      }
+    });
+
+    manualLockBtn.addEventListener('click', () => {
+      if (!dashcamRunning) return;
+      triggerIncidentLock("MANUAL PANIC TRIGGER", "PANIC");
+    });
+
+    flipCameraBtn.addEventListener('click', () => {
+      facingMode = (facingMode === 'user') ? 'environment' : 'user';
+      if (dashcamRunning && !syntheticAiMode) {
+        stopDashcamSystem();
+        startDashcamSystem(false);
+      }
+    });
+
+    stealthScreenBtn.addEventListener('click', () => {
+      stealthOverlay.classList.remove('hidden');
+    });
+
+    stealthOverlay.addEventListener('click', () => {
+      stealthOverlay.classList.add('hidden');
+    });
+
+    setInterval(() => {
+      stealthClock.textContent = new Date().toLocaleTimeString();
+    }, 1000);
+
+    if (toggleStruggleBtn) {
+      toggleStruggleBtn.addEventListener('click', () => {
+        struggleDetectionEnabled = !struggleDetectionEnabled;
+        strugglePersistFrames = 0;
+        toggleStruggleBtn.innerHTML = struggleDetectionEnabled
+          ? '<span class="text-red-400 font-bold">STRUGGLE: ON</span>'
+          : '<span>STRUGGLE: OFF</span>';
+      });
+    }
+
+    toggleSilentModeBtn.addEventListener('click', () => {
+      isSilentAlarm = !isSilentAlarm;
+      if (isSilentAlarm) {
+        silentModeIcon.className = "ph-bold ph-speaker-slash text-amber-400";
+        silentModeLabel.textContent = "SILENT ALARM";
+        silentModeLabel.className = "text-amber-400 font-bold";
+      } else {
+        silentModeIcon.className = "ph-bold ph-speaker-high text-red-400";
+        silentModeLabel.textContent = "AUDIBLE ALARM";
+        silentModeLabel.className = "text-red-400 font-bold";
+      }
+    });
+
+    openGalleryBtn.addEventListener('click', () => galleryModal.classList.remove('hidden'));
+    closeGalleryBtn.addEventListener('click', () => galleryModal.classList.add('hidden'));
+
+    closePlayerBtn.addEventListener('click', () => {
+      videoPlayerModal.classList.add('hidden');
+      incidentVideoPlayer.pause();
+    });
+
+    openSettingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+    driverZoneSlider.addEventListener('input', (e) => {
+      driverZoneXBoundary = parseFloat(e.target.value);
+      driverZoneValLabel.textContent = `${Math.round(driverZoneXBoundary * 100)}% Screen`;
+    });
+
+    velocitySlider.addEventListener('input', (e) => {
+      velocityThreshold = parseFloat(e.target.value);
+      velocityValLabel.textContent = velocityThreshold < 0.1 ? 'Ultra-High' : (velocityThreshold < 0.18 ? 'High' : 'Normal');
+    });
+
+    confThreshSlider.addEventListener('input', (e) => {
+      minWeaponConfidence = parseFloat(e.target.value);
+      confThreshLabel.textContent = `${Math.round(minWeaponConfidence * 100)}%`;
+    });
+
+    toggleDebugBoxesBtn.addEventListener('click', () => {
+      showDebugBoxes = !showDebugBoxes;
+      toggleDebugBoxesBtn.textContent = showDebugBoxes ? 'DEBUG BOXES: ON' : 'DEBUG BOXES: OFF';
+      toggleDebugBoxesBtn.className = showDebugBoxes
+        ? 'py-1.5 px-2 rounded-lg bg-cyan-950 border border-cyan-700 text-cyan-300 text-[11px] font-bold'
+        : 'py-1.5 px-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-[11px] font-bold';
+    });
+
+    document.getElementById('simStruggleBtn').addEventListener('click', () => {
+      simModeActiveThreat = 'struggle';
+      threatHoldUntil = performance.now() + 6000;
+      showThreatBanner("CABIN STRUGGLE DETECTED", "RAPID ZONE INTRUSION / TACKLE", "ph-warning-octagon");
+      threatSummaryText.textContent = "THREAT: Physical Struggle";
+      triggerIncidentLock("CABIN STRUGGLE DETECTED", "STRUGGLE");
+    });
+
+    document.getElementById('simMaskBtn').addEventListener('click', () => {
+      simModeActiveThreat = 'mask';
+      threatHoldUntil = performance.now() + 6000;
+      showThreatBanner("MASKED / BALACLAVA SUSPECT", "OCCLUDED FACE INSIDE CABIN", "ph-mask-happy");
+      threatSummaryText.textContent = "THREAT: Masked Suspect";
+      triggerIncidentLock("MASKED SUSPECT DETECTED", "MASK");
+    });
+
+    document.getElementById('simBladeBtn').addEventListener('click', () => {
+      simModeActiveThreat = 'blade';
+      threatHoldUntil = performance.now() + 6000;
+      showThreatBanner("BLADE / WEAPON DETECTED", "WEAPON BRANDISHED INSIDE CABIN", "ph-sword");
+      threatSummaryText.textContent = "THREAT: Weapon Brandished";
+      triggerIncidentLock("WEAPON DETECTED", "WEAPON");
+    });
+
+    saveSettingsBtn.addEventListener('click', () => {
+      parseClassLabels();
+      settingsModal.classList.add('hidden');
+    });
+
+    function updateStatusBadge(state) {
+      if (state === 'REC') {
+        statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-purple-950 text-purple-400 border border-purple-700 flex items-center gap-1.5';
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span><span>CABIN ACTIVE</span>`;
+        recordingBox.classList.remove('hidden');
+      } else if (state === 'LOCKED') {
+        statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-red-950 text-red-400 border border-red-700 flex items-center gap-1.5 animate-bounce';
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span><span>EVIDENCE LOCKED</span>`;
+      } else {
+        statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5';
+        statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-500"></span><span>STANDBY</span>`;
+        recordingBox.classList.add('hidden');
+      }
+    }
+
+    function updateRecTimer() {
+      const elapsed = Math.floor((Date.now() - recStartTime) / 1000);
+      const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const s = String(elapsed % 60).padStart(2, '0');
+      recTimerText.textContent = `${m}:${s}`;
+    }
+
+    function updateGalleryUI() {
+      galleryContainer.innerHTML = '';
+      if (lockedIncidents.length === 0) {
+        galleryContainer.appendChild(emptyGalleryState);
+        galleryBadge.classList.add('hidden');
+        galleryCountLabel.textContent = "0 Clips Saved";
+        return;
+      }
+
+      galleryBadge.classList.remove('hidden');
+      galleryBadge.textContent = lockedIncidents.length;
+      galleryCountLabel.textContent = `${lockedIncidents.length} Clip${lockedIncidents.length === 1 ? '' : 's'} Protected`;
+
+      lockedIncidents.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row gap-3 items-center justify-between hover:border-slate-700 transition';
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3 w-full sm:w-auto">
+            <img src="${item.snapshotUrl}" class="w-24 h-16 object-cover rounded-lg border border-slate-800 shrink-0 bg-slate-900" />
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-950 text-red-400 border border-red-800">${item.reason}</span>
+                <span class="text-[11px] font-mono text-slate-400">${item.timestamp}</span>
+              </div>
+              <p class="text-xs font-mono text-slate-300 mt-1">
+                Peak Impact: <span class="text-emerald-400 font-bold">${item.gForce}</span> | Location: <span class="text-purple-400 font-bold">${item.coords}</span>
+              </p>
+              <p class="text-[10px] font-mono text-slate-500">${item.blobSize}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 border-slate-900 pt-2 sm:pt-0">
+            <button onclick="playIncidentVideo(${idx})" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs font-semibold transition flex items-center gap-1">
+              <i class="ph-bold ph-play"></i> Play
+            </button>
+            <a href="${item.videoUrl}" download="${item.id}.webm" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+              <i class="ph-bold ph-download-simple text-base"></i>
+            </a>
+            <button onclick="deleteIncidentClip(${idx})" class="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-rose-400 transition">
+              <i class="ph-bold ph-trash text-base"></i>
+            </button>
+          </div>
+        `;
+        galleryContainer.appendChild(card);
+      });
+    }
+
+    window.playIncidentVideo = (idx) => {
+      const item = lockedIncidents[idx];
+      if (!item) return;
+      incidentVideoPlayer.src = item.videoUrl;
+      videoPlayerTitle.textContent = `${item.id} - ${item.reason}`;
+      videoTelemetryDetails.innerHTML = `
+        <span>Time: ${item.timestamp}</span>
+        <span>Impact: ${item.gForce}</span>
+        <span>Location: ${item.coords}</span>
+      `;
+      videoPlayerModal.classList.remove('hidden');
+    };
+
+    window.deleteIncidentClip = (idx) => {
+      lockedIncidents.splice(idx, 1);
+      updateGalleryUI();
+    };
+
+  </script>
+</body>
+</html>
