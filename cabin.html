@@ -458,10 +458,15 @@
     let consecutiveMaskedFrames = 0;
     const MASK_FRAME_THRESHOLD = 5;
 
-    // Throttle object inference slightly to keep phone smooth & cool
+    // Prevent overlapping async vision frames and throttle heavy models on mobile
+    let isFrameBusy = false;
     let lastObjDetectTime = 0;
+    let lastPoseFaceTime = 0;
     let cachedObjDetections = [];
-    const OBJ_DETECT_INTERVAL_MS = 140;
+    let cachedPoseLandmarks = [];
+    let cachedFaceDetections = [];
+    const OBJ_DETECT_INTERVAL_MS = isMobileDevice ? 450 : 160;
+    const POSE_FACE_INTERVAL_MS = isMobileDevice ? 260 : 80;
 
     // Telemetry & Sensors
     let currentGForce = 1.0;
@@ -1109,8 +1114,9 @@
           mediaStream = await navigator.mediaDevices.getUserMedia({
             video: {
               facingMode: facingMode,
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
+              width: { ideal: isMobileDevice ? 640 : 1280 },
+              height: { ideal: isMobileDevice ? 480 : 720 },
+              frameRate: { ideal: isMobileDevice ? 20 : 30, max: 30 }
             },
             audio: false
           });
@@ -1268,13 +1274,21 @@
     ];
     const MASK_KEYWORDS = ['balaclava', 'mask', 'ski mask'];
 
+    let lastMonotonicMpTs = 0;
+
     async function visionProcessFrame(now) {
       if (!dashcamRunning) return;
+
+      if (isFrameBusy) {
+        requestAnimationFrame(visionProcessFrame);
+        return;
+      }
+      isFrameBusy = true;
 
       try {
         frameCount++;
         if (now - lastFrameTime >= 1000) {
-          currentFps = Math.round((frameCount * 1000) / (now - lastFrameTime));
+          currentFps = Math.max(1, Math.round((frameCount * 1000) / (now - lastFrameTime)));
           fpsValue.textContent = currentFps;
           frameCount = 0;
           lastFrameTime = now;
@@ -1282,7 +1296,7 @@
 
         const w = video.videoWidth || demoCanvas.width || hudCanvas.clientWidth;
         const h = video.videoHeight || demoCanvas.height || hudCanvas.clientHeight;
-        if (hudCanvas.width !== w || hudCanvas.height !== h) {
+        if (w > 0 && h > 0 && (hudCanvas.width !== w || hudCanvas.height !== h)) {
           hudCanvas.width = w;
           hudCanvas.height = h;
         }
@@ -1301,60 +1315,74 @@
           rawStruggleDetected = simRes.struggle;
           balaclavaDetected = simRes.balaclava;
           bladeDetected = simRes.blade;
-        } else if (video.readyState >= 2) {
-          // --- 1. POSE LANDMARKER ANALYSIS (Struggle / Tackle) ---
-          if (poseLandmarker) {
-            try {
-              const poseRes = poseLandmarker.detectForVideo(video, now);
-              if (poseRes && poseRes.landmarks) {
-                const dT = (now - prevLandmarkTime) / 1000;
-                poseRes.landmarks.forEach((pose, idx) => {
-                  drawPoseSkeleton(hudCtx, pose, w, h);
+        } else if (video.readyState >= 2 && w > 0 && h > 0) {
+          const mpTs = Math.max(Math.round(now), lastMonotonicMpTs + 1);
 
-                  const wrists = [pose[15], pose[16]].filter(Boolean);
-                  wrists.forEach(wrist => {
-                    const xNorm = wrist.x;
-                    if (xNorm < driverZoneXBoundary) {
-                      hudCtx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-                      hudCtx.beginPath();
-                      hudCtx.arc(wrist.x * w, wrist.y * h, 25, 0, Math.PI * 2);
-                      hudCtx.fill();
-                    }
+          // --- 1 & 2. POSE + FACE (Throttled on mobile to keep camera smooth) ---
+          if (now - lastPoseFaceTime >= POSE_FACE_INTERVAL_MS) {
+            lastPoseFaceTime = now;
+            lastMonotonicMpTs = mpTs;
 
-                    if (prevLandmarks && prevLandmarks[idx] && dT > 0) {
-                      const prevWrist = prevLandmarks[idx][15];
-                      if (prevWrist) {
-                        const dist = Math.hypot(wrist.x - prevWrist.x, wrist.y - prevWrist.y);
-                        const velocity = dist / dT;
-                        if (velocity > velocityThreshold && xNorm < driverZoneXBoundary) {
-                          rawStruggleDetected = true;
+            if (poseLandmarker && struggleDetectionEnabled) {
+              try {
+                const poseRes = poseLandmarker.detectForVideo(video, mpTs);
+                if (poseRes && poseRes.landmarks) {
+                  cachedPoseLandmarks = poseRes.landmarks;
+                  const dT = Math.max(0.016, (now - prevLandmarkTime) / 1000);
+                  poseRes.landmarks.forEach((pose, idx) => {
+                    const wrists = [pose[15], pose[16]].filter(Boolean);
+                    wrists.forEach(wrist => {
+                      const xNorm = wrist.x;
+                      if (prevLandmarks && prevLandmarks[idx]) {
+                        const prevWrist = prevLandmarks[idx][15];
+                        if (prevWrist) {
+                          const dist = Math.hypot(wrist.x - prevWrist.x, wrist.y - prevWrist.y);
+                          const velocity = dist / dT;
+                          if (velocity > velocityThreshold && xNorm < driverZoneXBoundary) {
+                            rawStruggleDetected = true;
+                          }
                         }
                       }
-                    }
+                    });
                   });
-                });
-                prevLandmarks = poseRes.landmarks;
-                prevLandmarkTime = now;
-              }
-            } catch (e) { console.warn("Pose Error:", e); }
+                  prevLandmarks = poseRes.landmarks;
+                  prevLandmarkTime = now;
+                }
+              } catch (e) { console.warn("Pose Error:", e); }
+            }
+
+            if (faceDetector) {
+              try {
+                const faceRes = faceDetector.detectForVideo(video, mpTs);
+                if (faceRes && faceRes.detections) {
+                  cachedFaceDetections = faceRes.detections;
+                }
+              } catch (e) { console.warn("Face Error:", e); }
+            }
           }
 
-          // --- 2. FACE DETECTOR (Balaclava occlusion check) ---
-          let detectedFacesCount = 0;
-          if (faceDetector) {
-            try {
-              const faceRes = faceDetector.detectForVideo(video, now);
-              if (faceRes && faceRes.detections) {
-                detectedFacesCount = faceRes.detections.length;
-                faceRes.detections.forEach(face => {
-                  const box = face.boundingBox;
-                  hudCtx.strokeStyle = '#10b981';
-                  hudCtx.lineWidth = 2;
-                  hudCtx.strokeRect(box.originX, box.originY, box.width, box.height);
-                });
+          // Draw cached pose skeleton & face boxes every frame
+          cachedPoseLandmarks.forEach(pose => {
+            drawPoseSkeleton(hudCtx, pose, w, h);
+            const wrists = [pose[15], pose[16]].filter(Boolean);
+            wrists.forEach(wrist => {
+              if (wrist.x < driverZoneXBoundary) {
+                hudCtx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+                hudCtx.beginPath();
+                hudCtx.arc(wrist.x * w, wrist.y * h, 25, 0, Math.PI * 2);
+                hudCtx.fill();
               }
-            } catch (e) { console.warn("Face Error:", e); }
-          }
+            });
+          });
+
+          cachedFaceDetections.forEach(face => {
+            const box = face.boundingBox;
+            if (box) {
+              hudCtx.strokeStyle = '#10b981';
+              hudCtx.lineWidth = 2;
+              hudCtx.strokeRect(box.originX, box.originY, box.width, box.height);
+            }
+          });
 
           // --- 3. OBJECT DETECTOR (Custom ONNX -> Custom TF.js YOLO -> COCO-SSD) ---
           if (now - lastObjDetectTime >= OBJ_DETECT_INTERVAL_MS) {
@@ -1365,7 +1393,7 @@
               } else if (customYoloModel) {
                 cachedObjDetections = await runCustomYoloInference(video, w, h);
               } else if (cocoModel) {
-                const preds = await cocoModel.detect(video, 15, minWeaponConfidence);
+                const preds = await cocoModel.detect(video, 10, minWeaponConfidence);
                 cachedObjDetections = preds.map(p => ({
                   label: p.class.toLowerCase(),
                   score: p.score,
@@ -1403,6 +1431,7 @@
             }
           });
 
+          const detectedFacesCount = cachedFaceDetections.length;
           if (personCount > 0 && detectedFacesCount === 0) {
             consecutiveMaskedFrames++;
             if (consecutiveMaskedFrames >= MASK_FRAME_THRESHOLD) {
@@ -1415,7 +1444,7 @@
 
         if (struggleDetectionEnabled && rawStruggleDetected) {
           strugglePersistFrames++;
-          if (strugglePersistFrames >= 8) {
+          if (strugglePersistFrames >= 5) {
             strugglePersistFrames = 0;
             struggleDetected = true;
           }
@@ -1445,10 +1474,14 @@
         }
       } catch (err) {
         console.error("Frame Processing Loop Error:", err);
+      } finally {
+        isFrameBusy = false;
       }
 
       hudTimestamp.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19);
-      requestAnimationFrame(visionProcessFrame);
+      if (dashcamRunning) {
+        requestAnimationFrame(visionProcessFrame);
+      }
     }
 
     // -------------------------------------------------------------
